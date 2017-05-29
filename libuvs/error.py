@@ -1,0 +1,5 @@
+
+class UVSError(Exception):
+    pass
+
+
