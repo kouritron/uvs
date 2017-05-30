@@ -4,7 +4,7 @@
 import os
 import base64
 import log
-import cryptmode
+import cryptdefaults
 
 
 from cryptography.fernet import Fernet
@@ -22,7 +22,7 @@ def get_new_random_salt():
      a different repository from a different time). 
      """
 
-    result = cryptmode.get_new_random_salt_for_current_mode().encode('hex')
+    result = cryptdefaults.get_new_random_salt_for_current_mode().encode('hex')
 
     log.fefrv("get_new_random_salt() returning. result (as hex encoded): ")
     log.fefrv(str(result), label=False)
@@ -49,7 +49,7 @@ class Transcryptor(object):
 
         super(Transcryptor, self).__init__()
 
-        kdf = cryptmode.make_kdf_for_current_mode(salt=salt.decode('hex'))
+        kdf = cryptdefaults.make_kdf_for_current_mode(salt=salt.decode('hex'))
 
         # kdf.derive returns a str (bytes object) (which is not encoded in hex or b64 or anything else)
         # Fernet requires  urlsafe_b64encode

@@ -1,6 +1,6 @@
 
 
-from cryptmode import should_print_insecure_log_msgs
+from cryptdefaults import should_print_insecure_log_msgs
 
 
 term_red   = "\033[1;31m"
