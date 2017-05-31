@@ -47,17 +47,7 @@ class HashAlgo(object):
 _REPO_HASH_CHOICE = HashAlgo.SHA512
 
 
-def get_hash_fingerprint_size():
-    """ Return the size of the fingerprints produced by the hash function used by current repository in bytes.
-     i.e. if this repo is using sha512 for hash algorithm then this function should return 64.
-     """
-    if _REPO_HASH_CHOICE == HashAlgo.SHA512:
-        return 64
 
-    if _REPO_HASH_CHOICE == HashAlgo.SHA3_512:
-        return 64
-
-    assert False, 'unknown hash is in use for this repository.'
 
 
 def should_print_insecure_log_msgs():
