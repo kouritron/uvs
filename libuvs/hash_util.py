@@ -1,43 +1,40 @@
 
-import systemdefaults as sdef
+
+
 import hashlib
+import systemdefaults as sdef
 
 
+def get_hash_digest_for_file(src_pathname):
+    """ Given a pathname to a src file, compute its hash digest (aka fingerprint) and return it. 
+    The choice of hash function depends on system defaults. 
+    """
 
-def get_uvs_fingerprint_size():
-    """ Return the size of the fingerprints produced by the hash function used by current repository in bytes.
-     i.e. if this repo is using sha512 for hash algorithm then this function should return 64.
-     """
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
-        return 64
-
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_512:
-        return 64
-
-    assert False, 'unknown hash is in use for this repository.'
+    assert False, 'implement me'
 
 
-
-def get_uvs_fingerprint(src):
+def get_hash_digest_for_bytes(src_bytes):
     """ Given a bit pattern as a bytes object, compute its hash (aka hash digest, aka fingerprint) 
       and return it as a hex encoded string. 
-      the choice of cryptographic hash function depends on the cryptdefaults module. 
-      
+      the choice of cryptographic hash function depends on system defaults. 
       """
 
-    assert isinstance(src, str) or isinstance(src, bytes)
+
+    assert isinstance(src_bytes, str) or isinstance(src_bytes, bytes)
 
     if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
-
         hf = hashlib.sha512()
-        hf.update(src)
+        hf.update(src_bytes)
+
+        return hf.hexdigest()
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
+        hf = hashlib.sha256
+        hf.update(src_bytes)
 
         return hf.hexdigest()
 
     if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_512:
         assert False, 'sha3 512 is not implemented yet.'
-
-
-
 
     assert False, 'unknown hash is in use for this repository.'

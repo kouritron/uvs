@@ -38,6 +38,17 @@ _SHADOW_FOLDER_NAME = '.uvs_shadow'
 _CACHE_FOLDER_NAME = '.uvs_cache'
 
 
+
+# this says if i am creating new segments for a new file, break it into segments of size default size
+# but if need you can make segments that are smaller than this or larger than this to handle deletions
+# and insertions. For more info look at the documentation on segments
+_SEGMENT_SIZE_DEFAULT = 4096
+
+
+# this says dont create segments of larger size than this. if necessary make two smaller chunks
+_SEGMENT_SIZE_MAX = 8192
+
+
 #-----------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------
@@ -49,10 +60,54 @@ class HashAlgo(object):
 
     SHA512 = 0
     SHA3_512 = 1
+    SHA256 = 2
+    SHA3_256 = 3
+
+
+class KDFAlgo(object):
+    """" Enumerate different choices for the key derivation function. """
+
+    # use PBKDF2HMAC from RSA labs algo using sha512
+    PBKDF2_WITH_SHA512 = 0
+
+    # use PBKDF2HMAC from RSA labs algo using sha256
+    PBKDF2_WITH_SHA256 = 1
+
+    # use scrypt (rfc 7914) for key derivation function.
+    SCRYPT = 2
+
+    # use argon2 (the winner of password hashing competition of 2015) for key derivation function.
+    ARGON2 = 3
+
+
 
 ## change this global to use a different hash.
 _REPO_HASH_CHOICE = HashAlgo.SHA512
 
+## change this global to use a diff kdf.
+_REPO_KDF_CHOICE = KDFAlgo.PBKDF2_WITH_SHA256
+
+
+
+def get_uvs_fingerprint_size():
+    """ Return the size of the fingerprints produced by the hash function used by current repository in bytes.
+     i.e. if this repo is using sha512 for hash algorithm then this function should return 64.
+     """
+
+
+    if _REPO_HASH_CHOICE == HashAlgo.SHA512:
+        return 64
+
+    if _REPO_HASH_CHOICE == HashAlgo.SHA3_512:
+        return 64
+
+    if _REPO_HASH_CHOICE == HashAlgo.SHA3_256:
+        return 32
+
+    if _REPO_HASH_CHOICE == HashAlgo.SHA256:
+        return 32
+
+    assert False, 'unknown hash is in use for this repository.'
 
 
 

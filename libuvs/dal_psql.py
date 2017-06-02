@@ -6,6 +6,7 @@ import json
 import hash_util
 import log
 import cryptmanager as cm
+import systemdefaults as sdef
 
 
 
@@ -45,7 +46,7 @@ class DAL(object):
         cursor.execute(""" CREATE SCHEMA IF NOT EXISTS uvs_schema; """)
         cursor.execute(""" SET search_path TO uvs_schema; """)
 
-        fp_size = hash_util.get_uvs_fingerprint_size()
+        fp_size = sdef.get_uvs_fingerprint_size()
         log.v("fp size is: " + str(fp_size) + " bytes")
 
         # wee need two symbols for each byte in hex encoding so
@@ -131,9 +132,11 @@ class DAL(object):
         sample_pass = 'weakpass123'
 
         public_info = {}
-        public_info['salt'] = cm.get_new_random_salt()
+
+        # fix the salt for sample data set 1 for testing purposes, in a real repo this should come from
+        # cm.get_new_random_salt()
+        public_info['salt'] = '596381b4268e6811cbf9614c3fa0981515223600f49ab12fc2f783729399a31e'
         public_info['test_field'] = 'test value'
-        public_info['test_field2222'] = 'hahahahahahaahhaha'
 
         public_info_serialized = json.dumps(public_info, ensure_ascii=False, indent=4, sort_keys=True)
 
@@ -167,6 +170,13 @@ class DAL(object):
         log.v( public_info_from_db )
 
 
+        assert  public_info_from_db.has_key('salt')
+
+        # salt is there, make sure its a str object (or bytes) but not unicode.
+        public_info_from_db['salt'] = str(public_info_from_db['salt'])
+
+        crypt_helper = cm.UVSTwoStageCryptHelper(usr_pass=sample_pass, salt=public_info_from_db['salt'])
+
 
 
         # -------------------------------------------------------------------------- sample data for
@@ -174,13 +184,13 @@ class DAL(object):
         # -------------------------------------------------------------------------- sample data for
 
         sample_file1_bytes = b'\n\n\n print hello \n\n\n'
-        sample_file1_fp =  hash_util.get_uvs_fingerprint(sample_file1_bytes)
+        sample_file1_fp =  hash_util.get_hash_digest_for_bytes(sample_file1_bytes)
 
         sample_file2_bytes = b'\n\n\n print hahahahaahahahahaha \n\n\n'
-        sample_file2_fp =  hash_util.get_uvs_fingerprint(sample_file2_bytes)
+        sample_file2_fp =  hash_util.get_hash_digest_for_bytes(sample_file2_bytes)
 
         sample_file3_bytes = b'\n\n\n print uvs is cool \n\n\n'
-        sample_file3_fp =  hash_util.get_uvs_fingerprint(sample_file3_bytes)
+        sample_file3_fp =  hash_util.get_hash_digest_for_bytes(sample_file3_bytes)
 
 
 

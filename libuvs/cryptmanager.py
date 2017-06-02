@@ -1,14 +1,15 @@
 
 
 
+from cryptography.fernet import Fernet
+
 import base64
+
 import log
 import rand_util
 import kdf_util
 
 
-
-from cryptography.fernet import Fernet
 
 def get_new_random_salt():
     """ Find a suitable random bit pattern to be used as salt for key derivation, and return it.
@@ -30,88 +31,111 @@ def get_new_random_salt():
     return result
 
 
-class Transcryptor(object):
-    """ Helper class for encrypting and decrypting files safely with a symmetric cipher and  user provided  
-     password (user pass, is the pass b4 kdf applied) and salt.
-     
-     The password must be kept secret, otherwise cipher text produced by this class no better than plaintext.  
-     The salt need not be kept secret. 
+class UVSTwoStageCryptHelper(object):
+    """ Helper class for applying the uvs 2 stage encryption scheme, (where the first round is
+     deterministic, and 2nd is randomized using random IVs, and MACed)
+    
+     The user of this class provides a password (secret) and a salt (public but random).
+     This class then provides methods for performing 1st stage (deterministic stage) 
+     and 2nd stage (randomized with IV and MACed) encryption and decryption and MAC verification.
     """
 
     def __init__(self, usr_pass, salt, progress_callback=None):
-        """ Init a new Transcryptor object. Applies the key derivation function to user password, and 
-        saves it in this object for future encrypt, decrypt operations. 
+        """ Init a new crypt helper object. Applies the key derivation function to 
+        user password, and saves it in this object for future operations. 
         
-        To lose the key simply destroy this object from memory. 
+        To lose the keys simply destroy this object from memory. 
         
         Since the key derivation function is intentionally compute-intensive this init call might take 
         a while to return. 
         """
 
-        super(Transcryptor, self).__init__()
+        super(UVSTwoStageCryptHelper, self).__init__()
 
-        kdf = kdf_util.make_kdf_for_current_mode(salt=salt.decode('hex'))
+        # derive key returns a bytes object (no hex or base64 encoding here)
+        kdf_output_key = kdf_util.derive_key(key_material=usr_pass, salt=salt.decode('hex'), key_len=48)
 
-        # kdf.derive returns a str (bytes object) (which is not encoded in hex or b64 or anything else)
-        # Fernet requires  urlsafe_b64encode
-        encryption_key = base64.urlsafe_b64encode( kdf.derive(key_material=usr_pass))
+        log.hazard('kdf produced key in hex: \n' + str(kdf_output_key.encode('hex')))
 
-        log.hazard('encryption key in urlsafe base 64: \n' + encryption_key)
-        log.hazard('encryption key in hex: \n' + str(base64.urlsafe_b64decode(encryption_key).encode('hex')))
+        # the first 128 bits (16  bytes) are for stage 1 (deterministic stage) encryption
+        self.stage1_key = kdf_output_key[:16]
+
+        # the 2nd 128 bits are key for the AES 128 CBC part of fernet
+        # the 3rd 128 bits are the key for HMAC part of fernet
+        # fernet wants a 256 bit key
+        fernet_key_bytes = kdf_output_key[16:48]
+
+        # fernet wants key to be encoded with the URL safe variant of base64
+        fernet_key = base64.urlsafe_b64encode(fernet_key_bytes)
+
+
+
+        log.hazard('fernet key in urlsafe base 64: \n' + fernet_key)
+        log.hazard('fernet key in hex: \n' + str(fernet_key_bytes.encode('hex')))
 
         # create a new fernet instance
-        self._fernet = Fernet(key=encryption_key)
-
-        # now to transcrypt simply:
-        # ciphertext_token = self._fernet.encrypt(b"my deep dark secrets")
-        # plaintext =  self._fernet.decrypt(ciphertext_token)
-
-
-        # this returns None if ok, else raises InvalidKey error, also u need a new kdf object,
-        # they destroy themselves after one use.
-        # kdf = cryptmode.make_kdf_for_current_mode(salt=salt.decode('hex'))
-        # kdf.verify(key_material=usr_pass, expected_key=self.encryption_key)
-
-
-    def encrypt_file(self, src, dst):
-        """ Given the pathname to a source file, encrypt it and save it into another file whose pathname is dst.  """
-
-        log.fefrv('encrypt_file() called, with src: >>{}<< dst: >>{}<<'.format(src, dst))
-
-        src_fhandle = open(src, 'rb')
-        dst_fhandle = open(dst, 'wb')
-
-        src_bytes = src_fhandle.read()
-
-        dst_bytes = self._fernet.encrypt(src_bytes)
-
-        # log.vvv('src_bytes: ' + src_bytes)
-        # log.vvv('dst_bytes: ' + dst_bytes)
-        # log.v( "dst_bytes in hex: " + base64.urlsafe_b64decode( dst_bytes ).encode('hex') )
-
-        dst_fhandle.write(dst_bytes)
+        self._fernet = Fernet(key=fernet_key)
 
 
 
+    def perform_final_stage_encryption_then_mac_on_bytes(self, plaintext_stage2):
+        """ In the uvs 2 stage encryption scheme, (where the first round is deterministic, and 2nd is randomized
+         using random IVs, and MACed), perform the final stage encryption then MAC, and return the result. 
+         Given a bunch of bytes in the first argument (plain_text), 
+         encrypt it, and return the ciphertext (with mac) as another bytes object. 
+        
+         This encryption is performed in CBC mode with random IVs so as to reveal nothing about src. 
+         This is a encrypt then mac scheme. 
+        """
+
+        log.fefr(' () called, with message: ' + str(plaintext_stage2) )
+
+        assert isinstance(plaintext_stage2, str) or isinstance(plaintext_stage2, bytes)
+
+        final_ciphertext = self._fernet.encrypt(plaintext_stage2)
+
+        log.v( "final stage ciphertext in hex: " + base64.urlsafe_b64decode( final_ciphertext ).encode('hex') )
+
+        return final_ciphertext
 
 
-    def decrypt_file(self, src, dst):
-        """ Given the pathname to a source file, decrypt it and save it into another file whose pathname is dst.  """
+    def verify_mac_and_remove_final_stage_encryption_on_bytes(self, final_stage_ciphertext):
+        """ In the uvs 2 stage encryption scheme, (where the first round is deterministic, and 2nd is randomized
+         using random IVs, and MACed), verify the MAC, and then if passed, remove the 2nd stage encryption and return
+         the result. Raise an error if MAC fails. 
+         
+         The argument to this method is a bytes object containing the the output of the 2nd stage. 
+        """
+
+        log.fefrv(' () called, with ciphertext: ' + str(final_stage_ciphertext))
+
+        assert isinstance(final_stage_ciphertext, str) or isinstance(final_stage_ciphertext, bytes)
+
+        #
+        plaintext_stage2 = self._fernet.decrypt(final_stage_ciphertext)
+
+        log.hazard( "Decrypted the token, the plaintext of stage 2 (which is the ciphertext of stage 1) in hex: " +
+                    base64.urlsafe_b64decode(plaintext_stage2).encode('hex'))
+
+        return plaintext_stage2
 
 
-        log.fefrv('decrypt_file() called, with src: >>{}<< dst: >>{}<<'.format(src, dst))
+    def perform_deterministic_stage_encryption_on_bytes(self, dt_stage_plaintext):
+        """ In the uvs 2 stage encryption scheme, (where the first round is deterministic, and 2nd is randomized
+         using random IVs, and MACed) perform the first stage encryption, on the supplied byte array and 
+         return the resulting ciphertext.
+        """
 
-        src_fhandle = open(src, 'rb')
-        dst_fhandle = open(dst, 'wb')
+        pass
 
-        src_bytes = src_fhandle.read()
 
-        dst_bytes = self._fernet.decrypt(src_bytes)
+    def perform_deterministic_stage_decryption_on_bytes(self, dt_stage_ciphertext):
+        """ In the uvs 2 stage encryption scheme, (where the first round is deterministic, and 2nd is randomized
+         using random IVs, and MACed) remove the first stage encryption on the supplied byte array and
+          return the resulting plaintext.
+        """
 
-        # log.vvv('src_bytes: ' + src_bytes)
-        # log.vvv('dst_bytes: ' + dst_bytes)
-        # log.v( "dst_bytes in hex: " + base64.urlsafe_b64decode( dst_bytes ).encode('hex') )
+        pass
 
-        dst_fhandle.write(dst_bytes)
 
 
