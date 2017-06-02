@@ -8,7 +8,7 @@ import getpass
 
 
 from libuvs import cryptmanager as cm
-from libuvs import cryptdefaults
+from libuvs import systemdefaults
 from libuvs import log
 from libuvs import util
 

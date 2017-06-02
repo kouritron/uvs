@@ -3,7 +3,7 @@ import os
 import hashlib
 import log
 
-import cryptdefaults as cdef
+import systemdefaults as sdef
 import hash_util
 import time
 
@@ -15,7 +15,7 @@ def get_new_random_salt_for_current_mode():
 
     size = 32
 
-    if cdef.is_in_insecure_rand_mode():
+    if sdef.is_in_insecure_rand_mode():
         temp = b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         factor = (size // len(temp)) + 1
         temp2 = temp * factor
@@ -61,7 +61,7 @@ def get_new_random_snapshot_id():
     """ Return a new random id to be used as new snapshot id. """
     global last_id_used
 
-    if cdef._NOT_SO_RAND_SNAPSHOT_ID:
+    if sdef._NOT_SO_RAND_SNAPSHOT_ID:
 
         result = int(time.time()*1000000)
 

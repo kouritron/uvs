@@ -128,9 +128,45 @@ class DAL(object):
         cursor = self._connection.cursor()
 
         # -------------------------------------------------------------------------- sample data for public table
-        test_pass = 'weakpass123'
+        sample_pass = 'weakpass123'
 
- 
+        public_info = {}
+        public_info['salt'] = cm.get_new_random_salt()
+        public_info['test_field'] = 'test value'
+        public_info['test_field2222'] = 'hahahahahahaahhaha'
+
+        public_info_serialized = json.dumps(public_info, ensure_ascii=False, indent=4, sort_keys=True)
+
+        log.vvvv(public_info_serialized)
+
+        # clear table in case previous records are there.
+        cursor.execute(""" DELETE FROM uvs_schema.public; """)
+
+        cursor.execute(""" INSERT INTO uvs_schema.public(public_json) VALUES (
+         %(serialized)s    );""", {'serialized': psycopg2.Binary(public_info_serialized)})
+
+        self._connection.commit()
+
+        # get the data back
+        cursor.execute(""" SELECT * FROM uvs_schema.public; """)
+
+        # fetchone returns a tuple, and inside the tuple you will find buffer type objects
+        first_row = cursor.fetchone()[0]
+        log.vvvv("Got back public json from db, first row type: " + str(type(first_row)))
+        log.vvvv('First row as str: ' + str(first_row))
+
+        public_info_from_db_serial = str(first_row)
+
+        # it maybe that the one from db has unicode objects in it, but == is str equality so we should still pass
+        # this before going forward.
+        assert public_info_serialized == public_info_from_db_serial
+
+        public_info_from_db = json.loads(public_info_from_db_serial)
+
+        log.v("public info dict now, after getting it back from db: ")
+        log.v( public_info_from_db )
+
+
 
 
         # -------------------------------------------------------------------------- sample data for
