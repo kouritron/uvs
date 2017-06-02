@@ -1,20 +1,12 @@
 
-# This module is where all the cryptographic defaults live.
+# This module is where all the system defaults live.
 # changing a hashing algorithm from sha256 to sha512 should require changes to this file only.
 # the entire rest of the system should not assume anything about choice of cipher, hash, length of something .....
 # all of these defaults should be set/changed in this module only.
+# in addition to cryptographic defaults other default values live here too. these can be anything
+# such locale or what name to use for the top level headless repo directory (i.e. '.uvs' or something else)
 
 
-
-
-#-----------------------------------------------------------------------------------------------------------------------
-#-----------------------------------------------------------------------------------------------------------------------
-#-----------------------------------------------------------------------------------------------------------------------
-
-
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat import backends
 
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -29,6 +21,21 @@ from cryptography.hazmat import backends
 _INSECURE_RAND_SRC = False
 
 _INSECURE_LOG_MSGS = True
+
+_NOT_SO_RAND_SNAPSHOT_ID = True
+
+# this is where the ciphertext blobs live,  dont put any source files or anything else that needs protection in here.
+# Remember the goal is that this folder + secret passphrase is enough to recover the entire repo and its history
+# for a regular user to work with the edvcs, and this folder alone (w/- secret passphrase) reveals no information
+# about the source files in this repo or their history
+_SHADOW_FOLDER_NAME = '.uvs_shadow'
+
+# this folder may contain information that helps the edvcs do its job and is not part of the source
+# but they are not in ciphertext and not to be ever pushed to the cloud.
+#
+# Ideally it should be lazily generated and regenerated if its deleted by the user ,
+# but we are in early alpha stage, so i cant guarantee that is how it will be used.
+_CACHE_FOLDER_NAME = '.uvs_cache'
 
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -70,48 +77,3 @@ def is_in_insecure_rand_mode():
         return True
 
     return False
-
-
-def make_kdf_for_current_mode(salt):
-    """ Make and return kdf object, that can be used to derive encryption keys from a user pass and a salt. 
-    Depending on which mode and cryptography defaults the system is running in this will return a suitable kdf.
-    """
-
-    assert None != salt
-
-    return _make_kdf_1(salt=salt)
-
-
-def _make_kdf_1(salt):
-    """ Make and return kdf object, using the 1st set of defaults. .
-    """
-
-    assert None != salt
-
-    backend = backends.default_backend()
-    algorithm = hashes.SHA256()
-
-    # length is the desired length of the derived key.
-    length = 32
-    iterations = 1000 * 1000   # 1 million rounds of sha256
-
-    kdf = PBKDF2HMAC(algorithm=algorithm, length=length, salt=salt, iterations=iterations, backend=backend)
-    return kdf
-
-def _make_kdf_2(salt):
-    """ Make and return kdf object, using the 2nd set of defaults. .
-    """
-
-    assert None != salt
-
-    backend = backends.default_backend()
-    algorithm = hashes.SHA512()
-
-    # length is the desired length of the derived key.
-    length = 32
-    iterations = 2000 * 1000 # 2 million rounds of sha512
-
-    kdf = PBKDF2HMAC(algorithm=algorithm, length=length, salt=salt, iterations=iterations, backend=backend)
-    return kdf
-
-

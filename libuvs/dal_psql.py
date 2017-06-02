@@ -1,10 +1,11 @@
 
 
 import psycopg2
+import json
 
 import hash_util
 import log
-
+import cryptmanager as cm
 
 
 
@@ -35,12 +36,12 @@ class DAL(object):
 
 
     def _create_schema(self):
-        """ Create empty Tables. """
+        """ Create empty Tables in the Postgres database to which this object is connected to.. """
 
         cursor = self._connection.cursor()
 
         # TODO if not exists maybe??
-        cursor.execute(""" DROP SCHEMA IF EXISTS uvs_schema CASCADE; """)
+        #cursor.execute(""" DROP SCHEMA IF EXISTS uvs_schema CASCADE; """)
         cursor.execute(""" CREATE SCHEMA IF NOT EXISTS uvs_schema; """)
         cursor.execute(""" SET search_path TO uvs_schema; """)
 
@@ -67,31 +68,52 @@ class DAL(object):
         # the above will do the same thing.
 
         cursor.execute("""CREATE TABLE IF NOT EXISTS snapshots (
-        sid char(%(fp_size)s) NOT NULL,
-        root_tnid char(%(fp_size)s) NOT NULL,
-        PRIMARY KEY (sid)
+        snapid char(%(fp_size)s) NOT NULL,
+        root_tid char(%(fp_size)s) NOT NULL,
+        PRIMARY KEY (snapid)
         );
         """, {'fp_size': fp_size_hex_enc} )
 
 
-        # TreeNodes table, i dont believe postgres table names are case sensitive.
-        cursor.execute("""CREATE TABLE IF NOT EXISTS tree_nodes (
-        tnid char(%(fp_size)s) NOT NULL,
-        tn BYTEA,
-        PRIMARY KEY (tnid)
+        # Trees table, i dont believe postgres table names are case sensitive.
+        # tid is the fingerprint of r1ct of the tree contents
+        # tree is json that describes whats in this tree.
+        cursor.execute("""CREATE TABLE IF NOT EXISTS trees (
+        tid char(%(fp_size)s) NOT NULL,
+        tree BYTEA,
+        PRIMARY KEY (tid)
         );
         """, {'fp_size': fp_size_hex_enc} )
 
 
-        # BitPatterns table
-        # BYTEA type has 1 GB max
-        cursor.execute("""CREATE TABLE IF NOT EXISTS bit_patterns (
-        bpid char(%(fp_size)s) NOT NULL,
-        bp BYTEA,
-        PRIMARY KEY (bpid)
+        # BYTEA type has 1 GB max size limit in postgres
+        # fid is the fingerprint of the r1ct (round 1 cipher text) of the file content
+        # finfo is json of information about this fid. Most important part is a list of seqments that make up this file
+        # dereference the segments table to find the contents of this file.
+        cursor.execute("""CREATE TABLE IF NOT EXISTS files (
+        fid char(%(fp_size)s) NOT NULL,
+        finfo BYTEA,
+        PRIMARY KEY (fid)
         );
         """, {'fp_size': fp_size_hex_enc} )
 
+
+        # BYTEA type has 1 GB max size limit in postgres
+        # sid is the fingerprint of the r1ct (round 1 cipher text) of this segment
+        cursor.execute("""CREATE TABLE IF NOT EXISTS segments (
+        sgid char(%(fp_size)s) NOT NULL,
+        segment BYTEA,
+        PRIMARY KEY (sgid)
+        );
+        """, {'fp_size': fp_size_hex_enc} )
+
+
+        # just a json record with some public info about this repo
+        # (like public name, salt, optional owner email if needed, ....)
+        cursor.execute("""CREATE TABLE IF NOT EXISTS public (
+        public_json BYTEA
+        );
+        """ )
 
         # this will commit the transaction right away. without this call, changes will be lost entirely.
         # Note after calling close on this connection, all cursors derived from it will fail to execute queries.
@@ -101,9 +123,19 @@ class DAL(object):
 
 
     def _populate_db_with_sample_set1(self):
-        """ load dataset 1 into the db. """
+        """ load data set 1 into the db. """
 
         cursor = self._connection.cursor()
+
+        # -------------------------------------------------------------------------- sample data for public table
+        test_pass = 'weakpass123'
+
+ 
+
+
+        # -------------------------------------------------------------------------- sample data for
+        # -------------------------------------------------------------------------- sample data for
+        # -------------------------------------------------------------------------- sample data for
 
         sample_file1_bytes = b'\n\n\n print hello \n\n\n'
         sample_file1_fp =  hash_util.get_uvs_fingerprint(sample_file1_bytes)
@@ -115,14 +147,24 @@ class DAL(object):
         sample_file3_fp =  hash_util.get_uvs_fingerprint(sample_file3_bytes)
 
 
-        cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
-        %(bpid)s, %(bp)s    );""", {'bpid': sample_file1_fp, 'bp': psycopg2.Binary(sample_file1_bytes) } )
 
-        cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
-        %(bpid)s, %(bp)s    );""", {'bpid': sample_file2_fp, 'bp': psycopg2.Binary(sample_file2_bytes) } )
 
-        cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
-        %(bpid)s, %(bp)s    );""", {'bpid': sample_file3_fp, 'bp': psycopg2.Binary(sample_file3_bytes) } )
+        # cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
+        # %(bpid)s, %(bp)s    );""", {'bpid': sample_file1_fp, 'bp': psycopg2.Binary(sample_file1_bytes) } )
+        #
+        # cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
+        # %(bpid)s, %(bp)s    );""", {'bpid': sample_file2_fp, 'bp': psycopg2.Binary(sample_file2_bytes) } )
+        #
+        # cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
+        # %(bpid)s, %(bp)s    );""", {'bpid': sample_file3_fp, 'bp': psycopg2.Binary(sample_file3_bytes) } )
+
+
+        # ----------------------------------------------------------------------------- sample data for trees  table
+        tree1 = {}
+
+
+
+
 
         self._connection.commit()
 

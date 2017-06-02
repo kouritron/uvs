@@ -8,7 +8,7 @@ import getpass
 
 
 from libuvs import cryptmanager as cm
-from libuvs import cryptdefaults
+from libuvs import rand_util
 from libuvs import log
 from libuvs import util
 
@@ -123,7 +123,7 @@ def _process_rdy_subcommand(dest):
 
     # .dot_e3g_protected file resides in './sf' and has its cipher text version in './sf_shadow'
     dot_e3g_protected = {}
-    filename_mappings = [(pfname, cryptdefaults.get_new_random_filename()) for pfname in plaintext_filenames]
+    filename_mappings = [(pfname, rand_util.get_new_random_filename()) for pfname in plaintext_filenames]
     dot_e3g_protected['filename_mappings'] = filename_mappings
     #log.vvv("filename mappings are as follows: " + str(dot_e3g_protected['filename_mappings']))
 

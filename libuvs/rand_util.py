@@ -3,8 +3,9 @@ import os
 import hashlib
 import log
 
-from cryptdefaults import is_in_insecure_rand_mode
-
+import cryptdefaults as cdef
+import hash_util
+import time
 
 
 def get_new_random_salt_for_current_mode():
@@ -14,7 +15,7 @@ def get_new_random_salt_for_current_mode():
 
     size = 32
 
-    if is_in_insecure_rand_mode():
+    if cdef.is_in_insecure_rand_mode():
         temp = b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         factor = (size // len(temp)) + 1
         temp2 = temp * factor
@@ -36,6 +37,7 @@ def get_new_random_filename():
      """
 
     # read a lot of data from os random source then sha256 it to get a random number. (not sha256 of some filename)
+    # read a lot of data from os random source in different syscalls for more randomness
     read_size = 8 * 1024
 
     rand_chunks = []
@@ -51,5 +53,31 @@ def get_new_random_filename():
     result = hash_func.hexdigest()
 
     log.fefrv("get_new_random_filename() returning. new file name is: \n " + result)
+
+    return result
+
+
+def get_new_random_snapshot_id():
+    """ Return a new random id to be used as new snapshot id. """
+    global last_id_used
+
+    if cdef._NOT_SO_RAND_SNAPSHOT_ID:
+
+        result = int(time.time()*1000000)
+
+        log.fefr("get_new_random_snapshot_id() returning. new sid is: \n " + result)
+        return result
+
+    # read a lot of data from os random source in different syscalls for more randomness
+    read_size = 1024
+
+    rand_chunks = []
+
+    for i in range(0, 40):
+        rand_chunks.append(os.urandom(read_size))
+
+    result = hash_util.get_uvs_fingerprint( "".join(rand_chunks) )
+
+    log.fefr("get_new_random_snapshot_id() returning. new sid is: \n " + result)
 
     return result
