@@ -2,13 +2,38 @@
 
 
 from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, hmac
 
 import base64
 
 import log
 import rand_util
 import kdf_util
+import systemdefaults as sdef
 
+
+def get_uvs_fingerprint_size():
+    """ returns the size of uvs fingerprints. this is not necessarily the same size as the underlying message
+    digest size. 
+    
+    uvs fingerprints are a way of producing small fingerprints that identify large objects. They are to be assumed
+    collision free in practice, similar to cryptographic hash functions. 
+    
+    the main difference between uvs fingerprint of a given object and say for example sha256 or sha512 fingerprint
+    of that object is that uvs fingerprints are also dependent on each repository's key and salt. 
+    
+    sha512(b'hello world') is always the same universally.
+    uvs_fingerprint(b'hello world') is different in two different repositories with diff passwords and salts.
+     
+    this helps uvs edvcs hide which files live in each repo. whereas if the non-keyed algorithm was used 
+    to fingerprint objects an attacker could tell whether or not some particular plaintext file exists in a repo or
+    not. for example an attacker could tell whether or not "react.min.js" is in a repo by looking at the list
+    of fingerprints even if he cant access the content of the files which are encrypted.  
+    """
+
+
+    return sdef.get_digest_size()
 
 
 def get_new_random_salt():
@@ -31,111 +56,114 @@ def get_new_random_salt():
     return result
 
 
-class UVSTwoStageCryptHelper(object):
-    """ Helper class for applying the uvs 2 stage encryption scheme, (where the first round is
-     deterministic, and 2nd is randomized using random IVs, and MACed)
+class UVSCryptHelper(object):
+    """ Helper class for performing the necessary encryption decryption and fingerprint of objects tracked
+    by the uvs encrypted distributed version control system.
     
-     The user of this class provides a password (secret) and a salt (public but random).
-     This class then provides methods for performing 1st stage (deterministic stage) 
-     and 2nd stage (randomized with IV and MACed) encryption and decryption and MAC verification.
     """
 
-    def __init__(self, usr_pass, salt, progress_callback=None):
+    def __init__(self, usr_pass, salt):
         """ Init a new crypt helper object. Applies the key derivation function to 
         user password, and saves it in this object for future operations. 
         
         To lose the keys simply destroy this object from memory. 
         
         Since the key derivation function is intentionally compute-intensive this init call might take 
-        a while to return. 
+        a while and/or use a lot of memory before returning. 
         """
 
-        super(UVSTwoStageCryptHelper, self).__init__()
+        super(UVSCryptHelper, self).__init__()
+
+        fernet_key_len = 32
+
+        # the len of the key that will be used to derive the uvs fingerprints for any object
+        uvsfp_key_len = sdef.get_digest_size()
+
+        total_key_len = fernet_key_len + uvsfp_key_len
 
         # derive key returns a bytes object (no hex or base64 encoding here)
-        kdf_output_key = kdf_util.derive_key(key_material=usr_pass, salt=salt.decode('hex'), key_len=48)
+        kdf_output_key = kdf_util.derive_key(key_material=usr_pass, salt=salt.decode('hex'), key_len=total_key_len)
 
         log.hazard('kdf produced key in hex: \n' + str(kdf_output_key.encode('hex')))
 
-        # the first 128 bits (16  bytes) are for stage 1 (deterministic stage) encryption
-        self.stage1_key = kdf_output_key[:16]
+        # the first uvsfp_key_len many bytes are for keyed fingerprinting of objects
+        self.uvsfp_key_bytes = kdf_output_key[:uvsfp_key_len]
 
-        # the 2nd 128 bits are key for the AES 128 CBC part of fernet
-        # the 3rd 128 bits are the key for HMAC part of fernet
         # fernet wants a 256 bit key
-        fernet_key_bytes = kdf_output_key[16:48]
+        # the 1st 128 bits of this are used for AES 128 CBC
+        # the 2nd 128 bits of this are used for authenticating tokens (HMAC part of fernet)
+        fernet_key_bytes = kdf_output_key[uvsfp_key_len: uvsfp_key_len + fernet_key_len]
 
-        # fernet wants key to be encoded with the URL safe variant of base64
-        fernet_key = base64.urlsafe_b64encode(fernet_key_bytes)
-
-
-
-        log.hazard('fernet key in urlsafe base 64: \n' + fernet_key)
+        log.hazard('uvs fp key in hex: \n' + str(self.uvsfp_key_bytes.encode('hex')))
         log.hazard('fernet key in hex: \n' + str(fernet_key_bytes.encode('hex')))
 
         # create a new fernet instance
-        self._fernet = Fernet(key=fernet_key)
+        # fernet wants key to be encoded with the URL safe variant of base64
+        self._fernet = Fernet(key=base64.urlsafe_b64encode(fernet_key_bytes))
 
 
 
-    def perform_final_stage_encryption_then_mac_on_bytes(self, plaintext_stage2):
-        """ In the uvs 2 stage encryption scheme, (where the first round is deterministic, and 2nd is randomized
-         using random IVs, and MACed), perform the final stage encryption then MAC, and return the result. 
-         Given a bunch of bytes in the first argument (plain_text), 
-         encrypt it, and return the ciphertext (with mac) as another bytes object. 
+    def encrypt_bytes(self, message):
+        """ Encrypt and return ciphertext for the given message. message is a byte array (bytes or str object) 
+         The cipher text includes authentication codes such that in the future it can be both verified 
+         and decrypted to recover the original message by someone who posses the key. 
+        """
+
+        log.fefr('encrypt_bytes() called, with message: ' + str(message) )
+
+        assert isinstance(message, str) or isinstance(message, bytes)
+
+        fernet_token = self._fernet.encrypt(message)
+
+        log.v( "fernet ciphertext in hex: " + base64.urlsafe_b64decode(fernet_token).encode('hex'))
+
+        return fernet_token
+
+
+    def decrypt_bytes(self, ct):
+        """ Decrypt and return the plaintext message that was used to construct the supplied argument.
+        The argument is a bytes or str object.
         
-         This encryption is performed in CBC mode with random IVs so as to reveal nothing about src. 
-         This is a encrypt then mac scheme. 
+        Raise error if ciphertext has been tampered with (MAC fails) or if the key is invalid. 
         """
 
-        log.fefr(' () called, with message: ' + str(plaintext_stage2) )
+        log.fefrv('decrypt_bytes() called, with ciphertext: ' + str(ct))
 
-        assert isinstance(plaintext_stage2, str) or isinstance(plaintext_stage2, bytes)
+        assert isinstance(ct, str) or isinstance(ct, bytes)
 
-        final_ciphertext = self._fernet.encrypt(plaintext_stage2)
+        original_message = self._fernet.decrypt(ct)
 
-        log.v( "final stage ciphertext in hex: " + base64.urlsafe_b64decode( final_ciphertext ).encode('hex') )
+        log.hazard( "Decrypted the token, original plaintext in hex: " +
+                    base64.urlsafe_b64decode(original_message).encode('hex'))
 
-        return final_ciphertext
+        return original_message
 
 
-    def verify_mac_and_remove_final_stage_encryption_on_bytes(self, final_stage_ciphertext):
-        """ In the uvs 2 stage encryption scheme, (where the first round is deterministic, and 2nd is randomized
-         using random IVs, and MACed), verify the MAC, and then if passed, remove the 2nd stage encryption and return
-         the result. Raise an error if MAC fails. 
-         
-         The argument to this method is a bytes object containing the the output of the 2nd stage. 
+    def get_uvs_fingerprint_of_bytes(self, message):
+        """ Compute and return the uvs fingerprint for the given message. 
+        message is a byte array (str or bytes object)
         """
 
-        log.fefrv(' () called, with ciphertext: ' + str(final_stage_ciphertext))
 
-        assert isinstance(final_stage_ciphertext, str) or isinstance(final_stage_ciphertext, bytes)
+        hash_func = None
 
-        #
-        plaintext_stage2 = self._fernet.decrypt(final_stage_ciphertext)
+        if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
+            hash_func = hashes.SHA512()
 
-        log.hazard( "Decrypted the token, the plaintext of stage 2 (which is the ciphertext of stage 1) in hex: " +
-                    base64.urlsafe_b64decode(plaintext_stage2).encode('hex'))
+        if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
+            hash_func = hashes.SHA256()
 
-        return plaintext_stage2
-
-
-    def perform_deterministic_stage_encryption_on_bytes(self, dt_stage_plaintext):
-        """ In the uvs 2 stage encryption scheme, (where the first round is deterministic, and 2nd is randomized
-         using random IVs, and MACed) perform the first stage encryption, on the supplied byte array and 
-         return the resulting ciphertext.
-        """
-
-        pass
-
-
-    def perform_deterministic_stage_decryption_on_bytes(self, dt_stage_ciphertext):
-        """ In the uvs 2 stage encryption scheme, (where the first round is deterministic, and 2nd is randomized
-         using random IVs, and MACed) remove the first stage encryption on the supplied byte array and
-          return the resulting plaintext.
-        """
-
-        pass
+        if None == hash_func:
+            raise NotImplementedError('un-supported or not implemented hash choice')
 
 
 
+        hmac_func = hmac.HMAC(self.uvsfp_key_bytes, hash_func, backend=default_backend())
+
+        hmac_func.update(message)
+        uvsfp = hmac_func.finalize()
+
+        log.v('>> computed uvs fp, message was (in hex): ' + str(message.encode('hex')))
+        log.v('>> uvs fp (in hex): ' + str(uvsfp.encode('hex')))
+
+        return uvsfp

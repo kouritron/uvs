@@ -46,7 +46,7 @@ class DAL(object):
         cursor.execute(""" CREATE SCHEMA IF NOT EXISTS uvs_schema; """)
         cursor.execute(""" SET search_path TO uvs_schema; """)
 
-        fp_size = sdef.get_uvs_fingerprint_size()
+        fp_size = cm.get_uvs_fingerprint_size()
         log.v("fp size is: " + str(fp_size) + " bytes")
 
         # wee need two symbols for each byte in hex encoding so
@@ -89,7 +89,7 @@ class DAL(object):
 
         # BYTEA type has 1 GB max size limit in postgres
         # fid is the fingerprint of the r1ct (round 1 cipher text) of the file content
-        # finfo is json of information about this fid. Most important part is a list of seqments that make up this file
+        # finfo is json of information about this fid. Most important part is a list of segments that make up this file
         # dereference the segments table to find the contents of this file.
         cursor.execute("""CREATE TABLE IF NOT EXISTS files (
         fid char(%(fp_size)s) NOT NULL,
@@ -175,22 +175,22 @@ class DAL(object):
         # salt is there, make sure its a str object (or bytes) but not unicode.
         public_info_from_db['salt'] = str(public_info_from_db['salt'])
 
-        crypt_helper = cm.UVSTwoStageCryptHelper(usr_pass=sample_pass, salt=public_info_from_db['salt'])
+        crypt_helper = cm.UVSCryptHelper(usr_pass=sample_pass, salt=public_info_from_db['salt'])
 
-
+        crypt_helper.get_uvs_fingerprint_of_bytes(b'AA hello world')
 
         # -------------------------------------------------------------------------- sample data for
         # -------------------------------------------------------------------------- sample data for
         # -------------------------------------------------------------------------- sample data for
 
         sample_file1_bytes = b'\n\n\n print hello \n\n\n'
-        sample_file1_fp =  hash_util.get_hash_digest_for_bytes(sample_file1_bytes)
+        sample_file1_fp =  hash_util.get_digest_for_bytes(sample_file1_bytes)
 
         sample_file2_bytes = b'\n\n\n print hahahahaahahahahaha \n\n\n'
-        sample_file2_fp =  hash_util.get_hash_digest_for_bytes(sample_file2_bytes)
+        sample_file2_fp =  hash_util.get_digest_for_bytes(sample_file2_bytes)
 
         sample_file3_bytes = b'\n\n\n print uvs is cool \n\n\n'
-        sample_file3_fp =  hash_util.get_hash_digest_for_bytes(sample_file3_bytes)
+        sample_file3_fp =  hash_util.get_digest_for_bytes(sample_file3_bytes)
 
 
 

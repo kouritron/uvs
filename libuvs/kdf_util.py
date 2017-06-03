@@ -56,6 +56,8 @@ def _make_kdf_for_current_mode(salt, key_len):
 
 def _make_kdf_pbkdf2_sha256(salt, key_len):
     """ Make and return kdf object for KDFAlgo.PBKDF2_WITH_SHA256.
+    salt is cryptographic salt (random , not secret)
+    key_len is the desired length of the derived key.
     """
 
     assert None != salt
@@ -65,16 +67,14 @@ def _make_kdf_pbkdf2_sha256(salt, key_len):
     backend = backends.default_backend()
     algorithm = hashes.SHA256()
 
-    # length is the desired length of the derived key.
-    length = key_len
-    iterations = 1000 * 1000   # 1 million rounds of sha256 hmac
-
-    kdf = PBKDF2HMAC(algorithm=algorithm, length=length, salt=salt, iterations=iterations, backend=backend)
+    kdf = PBKDF2HMAC(algorithm=algorithm, length=key_len, salt=salt, iterations=sdef._PBKDF2_ITERATIONS, backend=backend)
     return kdf
 
 
 def _make_kdf_pbkdf2_sha512(salt, key_len):
     """ Make and return kdf object for KDFAlgo.PBKDF2_WITH_SHA512
+    salt is cryptographic salt (random , not secret)
+    key_len is the desired length of the derived key.
     """
 
     assert None != salt
@@ -84,11 +84,7 @@ def _make_kdf_pbkdf2_sha512(salt, key_len):
     backend = backends.default_backend()
     algorithm = hashes.SHA512()
 
-    # length is the desired length of the derived key.
-    length = key_len
-    iterations = 2000 * 1000 # 2 million rounds of sha512 hmac
-
-    kdf = PBKDF2HMAC(algorithm=algorithm, length=length, salt=salt, iterations=iterations, backend=backend)
+    kdf = PBKDF2HMAC(algorithm=algorithm, length=key_len, salt=salt, iterations=sdef._PBKDF2_ITERATIONS, backend=backend)
     return kdf
 
 

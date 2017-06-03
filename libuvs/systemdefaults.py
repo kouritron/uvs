@@ -46,9 +46,18 @@ _SEGMENT_SIZE_DEFAULT = 4096
 
 
 # this says dont create segments of larger size than this. if necessary make two smaller chunks
+# TODO more research on this
+# also consider that each segment gets encrypted with Fernet and we a get a fernet token for each segment
+# to be sent to the public server. Now somewhere i read that there are limits to how much data can be
+# safely encrypted with a fixed (key, IV) pair. now in fernet a single token (segment in our case)
+# will use a single Key, IV pair. so maybe that means that fernet tokens should not get too large.
+# at the moment segment size does protect us from unlimited fernet tokens sizes.
 _SEGMENT_SIZE_MAX = 8192
 
-
+# in case pbkdf2 is used for key derivation, this specifies number of iterations
+# TODO reset this back to 1 million or higher. i am lowering it now for developement
+#_PBKDF2_ITERATIONS = 1000 * 1000
+_PBKDF2_ITERATIONS = 60000
 #-----------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------
@@ -62,6 +71,8 @@ class HashAlgo(object):
     SHA3_512 = 1
     SHA256 = 2
     SHA3_256 = 3
+
+    # TODO add blake and whirlpool (sha3 finalists) (find a py lib that supports it)
 
 
 class KDFAlgo(object):
@@ -88,9 +99,8 @@ _REPO_HASH_CHOICE = HashAlgo.SHA512
 _REPO_KDF_CHOICE = KDFAlgo.PBKDF2_WITH_SHA256
 
 
-
-def get_uvs_fingerprint_size():
-    """ Return the size of the fingerprints produced by the hash function used by current repository in bytes.
+def get_digest_size():
+    """ Return the digest size of cryptographic hash function used by current repository in bytes.
      i.e. if this repo is using sha512 for hash algorithm then this function should return 64.
      """
 
@@ -108,6 +118,7 @@ def get_uvs_fingerprint_size():
         return 32
 
     assert False, 'unknown hash is in use for this repository.'
+
 
 
 

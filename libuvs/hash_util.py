@@ -5,7 +5,7 @@ import hashlib
 import systemdefaults as sdef
 
 
-def get_hash_digest_for_file(src_pathname):
+def get_digest_for_file(src_pathname):
     """ Given a pathname to a src file, compute its hash digest (aka fingerprint) and return it. 
     The choice of hash function depends on system defaults. 
     """
@@ -13,7 +13,7 @@ def get_hash_digest_for_file(src_pathname):
     assert False, 'implement me'
 
 
-def get_hash_digest_for_bytes(src_bytes):
+def get_digest_for_bytes(src_bytes):
     """ Given a bit pattern as a bytes object, compute its hash (aka hash digest, aka fingerprint) 
       and return it as a hex encoded string. 
       the choice of cryptographic hash function depends on system defaults. 
