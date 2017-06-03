@@ -93,7 +93,7 @@ class KDFAlgo(object):
 
 
 ## change this global to use a different hash.
-_REPO_HASH_CHOICE = HashAlgo.SHA512
+_REPO_HASH_CHOICE = HashAlgo.SHA256
 
 ## change this global to use a diff kdf.
 _REPO_KDF_CHOICE = KDFAlgo.PBKDF2_WITH_SHA256

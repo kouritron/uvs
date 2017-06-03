@@ -29,7 +29,7 @@ def get_digest_for_bytes(src_bytes):
         return hf.hexdigest()
 
     if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
-        hf = hashlib.sha256
+        hf = hashlib.sha256()
         hf.update(src_bytes)
 
         return hf.hexdigest()
