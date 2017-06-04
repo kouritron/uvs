@@ -34,7 +34,22 @@ def get_digest_for_bytes(src_bytes):
 
         return hf.hexdigest()
 
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
+        hf = hashlib.sha224()
+        hf.update(src_bytes)
+
+        return hf.hexdigest()
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
+        hf = hashlib.sha384()
+        hf.update(src_bytes)
+
+        return hf.hexdigest()
+
     if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_512:
         assert False, 'sha3 512 is not implemented yet.'
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_256:
+            assert False, 'sha3 512 is not implemented yet.'
 
     assert False, 'unknown hash is in use for this repository.'

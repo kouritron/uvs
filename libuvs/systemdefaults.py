@@ -55,7 +55,7 @@ _SEGMENT_SIZE_DEFAULT = 4096
 _SEGMENT_SIZE_MAX = 8192
 
 # in case pbkdf2 is used for key derivation, this specifies number of iterations
-# TODO reset this back to 1 million or higher. i am lowering it now for developement
+# TODO reset this back to 1 million or higher. i am lowering it now for development
 #_PBKDF2_ITERATIONS = 1000 * 1000
 _PBKDF2_ITERATIONS = 60000
 #-----------------------------------------------------------------------------------------------------------------------
@@ -72,7 +72,21 @@ class HashAlgo(object):
     SHA256 = 2
     SHA3_256 = 3
 
+    # truncated ones: At first glance it might seem that these are weak, bad, or less collision resistant somehow
+    # but you would be wrong. truncating sha512 for example down to 300 bits still offers an incredibly
+    # strong collision resistant hash, but it also becomes a less revealing hash (good for MAC construction)
+    # because now an attacker has even less information about the source message or the internal state
+    # of the hash when the hashing was complete, so things like length extension attacks become probably impossible.
+    SHA224 = 4
+    SHA384 = 5
+
+
     # TODO add blake and whirlpool (sha3 finalists) (find a py lib that supports it)
+
+
+
+
+
 
 
 class KDFAlgo(object):
