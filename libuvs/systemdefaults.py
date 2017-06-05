@@ -18,9 +18,8 @@
 # NOTE
 ## ATTENTION: if any of these insecure modes are enabled, the system is not secure.
 ## They can be set to assist with debug/devel.
-_INSECURE_RAND_SRC = False
 
-_INSECURE_LOG_MSGS = True
+_INSECURE_RAND_SALT = False
 
 _NOT_SO_RAND_SNAPSHOT_ID = True
 
@@ -146,26 +145,3 @@ def get_digest_size():
     assert False, 'unknown hash is in use for this repository.'
 
 
-
-
-
-def should_print_insecure_log_msgs():
-    """ Return true when insecure log msgs are desired (during development) returns false in production """
-
-    return _INSECURE_LOG_MSGS
-
-
-
-def is_in_insecure_rand_mode():
-    """ Return true when the system is running in the insecure random source. False otherwise. 
-     Also prints warning to console every time mode is queried.
-     
-     This method should return False in a production environment.
-     """
-
-    if _INSECURE_RAND_SRC:
-        print "*******  Warning: system is in INSECURE RAND SRC MODE. (use this only in development). "
-
-        return True
-
-    return False

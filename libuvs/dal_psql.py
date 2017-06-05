@@ -2,6 +2,7 @@
 
 import psycopg2
 import json
+import os
 
 import hash_util
 import rand_util
@@ -9,6 +10,7 @@ import log
 import cryptmanager as cm
 import systemdefaults as sdef
 import _version
+import error
 
 
 
@@ -367,17 +369,8 @@ class DAL(object):
                            ON CONFLICT DO NOTHING ;""",
                        {'snapid': snapshot1_id, 'snap_json': psycopg2.Binary(snapshot1_json_ct)}  )
 
-
-
-
-
-
         self._connection.commit()
 
-
-if '__main__' == __name__:
-    log.vvvv(">> creating DAL")
-    dal = DAL()
 
 
 

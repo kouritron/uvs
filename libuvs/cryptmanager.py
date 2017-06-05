@@ -74,7 +74,7 @@ def get_new_random_salt():
      a different repository from a different time). 
      """
 
-    result = rand_util.get_new_random_salt_for_current_mode().encode('hex')
+    result = rand_util.get_new_random_salt().encode('hex')
 
     log.fefrv("get_new_random_salt() returning. result (as hex encoded): ")
     log.fefrv(str(result), label=False)

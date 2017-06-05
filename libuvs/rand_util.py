@@ -13,14 +13,14 @@ if sdef._NOT_SO_RAND_SNAPSHOT_ID:
     rand_src_debug_only.seed(10)
 
 
-def get_new_random_salt_for_current_mode():
+def get_new_random_salt():
     """ Return a new salt for key derivation. Based on the defaults of the current crypt mode.
      """
     log.fefrv("get_new_random_salt_for_current_mode() called")
 
     size = 32
 
-    if sdef.is_in_insecure_rand_mode():
+    if sdef._INSECURE_RAND_SALT():
         temp = b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         factor = (size // len(temp)) + 1
         temp2 = temp * factor
