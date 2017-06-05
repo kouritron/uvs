@@ -2,11 +2,17 @@
 
 from systemdefaults import should_print_insecure_log_msgs
 
-
+# the 1 appears to make it bold, color is after that
 term_red   = "\033[1;31m"
-term_blue  = "\033[1;34m"
-term_cyan  = "\033[1;36m"
 term_green = "\033[0;32m"
+term_yellow = "\033[1;33m"
+term_light_yellow = "\033[0;93m"
+term_blue  = "\033[1;34m"
+term_purple = "\033[0;35m"
+term_cyan  = "\033[1;36m"
+term_white_bold = "\033[1;38m"
+
+
 term_reset = "\033[0;0m"
 term_bold    = "\033[;1m"
 term_reverse = "\033[;7m"
@@ -104,6 +110,20 @@ def v(msg, label=True):
         final_msg = str(msg)
 
     print term_cyan + final_msg + term_reset
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+def fp(msg, label=True):
+    """ print log msgs related to objects and their fingerprints . """
+
+    final_msg = None
+
+    if label:
+        final_msg = 'fp: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_yellow + final_msg + term_reset
 
 
 #-----------------------------------------------------------------------------------------------------------------------

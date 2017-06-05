@@ -13,6 +13,31 @@ import kdf_util
 import systemdefaults as sdef
 
 
+def get_uvs_fingerprinting_algo_desc():
+    """ Return a string mentioning the current fingerprinting algorithm in use by the system. """
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
+        return  "SHA512_HMAC"
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
+        return  "SHA256_HMAC"
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
+        return  "SHA224_HMAC"
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
+        return  "SHA384_HMAC"
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_256:
+        return  "SHA3_256"
+
+    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_512:
+        return  "SHA3_512"
+
+    raise NotImplementedError('unknown or un-implemented hash algo in use. ')
+
+
+
 def get_uvs_fingerprint_size():
     """ returns the size of uvs fingerprints. this is not necessarily the same size as the underlying message
     digest size. 
@@ -109,13 +134,17 @@ class UVSCryptHelper(object):
          and decrypted to recover the original message by someone who posses the key. 
         """
 
-        log.fefr('encrypt_bytes() called, with message: ' + str(message) )
+        log.fefrv('encrypt_bytes() called, with message: ' + str(message) )
 
         assert isinstance(message, str) or isinstance(message, bytes)
 
+        # this is just for debugging.
+        if sdef._SKIP_ENCRYPTION:
+            return message
+
         fernet_token = self._fernet.encrypt(message)
 
-        log.v( "fernet ciphertext in hex: " + base64.urlsafe_b64decode(fernet_token).encode('hex'))
+        #log.vvvv( "fernet ciphertext in hex: " + base64.urlsafe_b64decode(fernet_token).encode('hex'))
 
         return fernet_token
 
@@ -131,6 +160,10 @@ class UVSCryptHelper(object):
 
         assert isinstance(ct, str) or isinstance(ct, bytes)
 
+        # this is just for debugging.
+        if sdef._SKIP_ENCRYPTION:
+            return ct
+
         original_message = self._fernet.decrypt(ct)
 
         log.hazard( "Decrypted the token, original plaintext in hex: " +
@@ -139,11 +172,12 @@ class UVSCryptHelper(object):
         return original_message
 
 
-    def get_uvs_fingerprint_of_bytes(self, message):
+    def get_uvsfp(self, message):
         """ Compute and return the uvs fingerprint for the given message. 
         message is a byte array (str or bytes object)
         """
 
+        assert isinstance(message, str) or isinstance(message, bytes)
 
         hash_func = None
 
@@ -152,6 +186,13 @@ class UVSCryptHelper(object):
 
         if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
             hash_func = hashes.SHA256()
+
+        if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
+            hash_func = hashes.SHA224()
+
+        if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
+            hash_func = hashes.SHA384()
+
 
         if None == hash_func:
             raise NotImplementedError('un-supported or not implemented hash choice')
@@ -163,7 +204,8 @@ class UVSCryptHelper(object):
         hmac_func.update(message)
         uvsfp = hmac_func.finalize()
 
-        log.v('>> computed uvs fp, message was (in hex): ' + str(message.encode('hex')))
-        log.v('>> uvs fp (in hex): ' + str(uvsfp.encode('hex')))
+        uvsfp = uvsfp.encode('hex')
+
+        log.fp('++++++ computed fp: ' + str(uvsfp) + '   ++++ for message (repr): \n' + repr(message))
 
         return uvsfp

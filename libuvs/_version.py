@@ -5,10 +5,6 @@ __version__ = '0.1.1 alpha'
 
 
 def get_version():
+    """ Return the current version of uvs as string. """
 
-    version = 'unknown version'
-
-    if __version__:
-        version = __version__
-
-    return version
+    return __version__

@@ -24,6 +24,10 @@ _INSECURE_LOG_MSGS = True
 
 _NOT_SO_RAND_SNAPSHOT_ID = True
 
+_SKIP_ENCRYPTION = True
+
+if _SKIP_ENCRYPTION: print "\033[1;31m" + "\n\n **** Warning system is set to skip encryption **** \n\n" + "\033[0;0m"
+
 # this is where the ciphertext blobs live,  dont put any source files or anything else that needs protection in here.
 # Remember the goal is that this folder + secret passphrase is enough to recover the entire repo and its history
 # for a regular user to work with the edvcs, and this folder alone (w/- secret passphrase) reveals no information
@@ -107,7 +111,7 @@ class KDFAlgo(object):
 
 
 ## change this global to use a different hash.
-_REPO_HASH_CHOICE = HashAlgo.SHA256
+_REPO_HASH_CHOICE = HashAlgo.SHA224
 
 ## change this global to use a diff kdf.
 _REPO_KDF_CHOICE = KDFAlgo.PBKDF2_WITH_SHA256
@@ -130,6 +134,14 @@ def get_digest_size():
 
     if _REPO_HASH_CHOICE == HashAlgo.SHA256:
         return 32
+
+    if _REPO_HASH_CHOICE == HashAlgo.SHA224:
+        return 28
+
+    if _REPO_HASH_CHOICE == HashAlgo.SHA384:
+        return 48
+
+
 
     assert False, 'unknown hash is in use for this repository.'
 
