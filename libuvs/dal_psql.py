@@ -4,6 +4,7 @@ import psycopg2
 import json
 
 import hash_util
+import rand_util
 import log
 import cryptmanager as cm
 import systemdefaults as sdef
@@ -91,7 +92,7 @@ class DAL(object):
         # TODO add another column (which is encrypted for commit messages)
         cursor.execute("""CREATE TABLE IF NOT EXISTS snapshots (
         snapid char(%(fp_size)s) NOT NULL,
-        root_tid char(%(fp_size)s) NOT NULL,
+        snapinfo_json BYTEA,
         PRIMARY KEY (snapid)
         );
         """, {'fp_size': fp_size_hex_enc} )
@@ -345,37 +346,27 @@ class DAL(object):
         cursor.execute(""" INSERT INTO uvs_schema.trees(tid, tree_json) VALUES (%(tid)s, %(tree_json)s) 
                            ON CONFLICT DO NOTHING ;""", {'tid': tree1_fp, 'tree_json': psycopg2.Binary(tree1_ct)}  )
 
-
-
         # -------------------------------------------------------------------------- sample snapshots (commits)
 
+        snapshot1_id = rand_util.get_new_random_snapshot_id()
 
+        snapshot1_json = {}
+        snapshot1_json['verify_snapid'] = snapshot1_id
+        snapshot1_json['root'] = tree1_fp
+        snapshot1_json['msg'] =  'First commit into uvs'
+        snapshot1_json['author_name'] =  'kourosh'
+        snapshot1_json['author_email'] =  'kourosh.sc@gmail.com'
+        snapshot1_json['snapshot_signature'] =  "put gpg signature here to prove the author's identity."
 
+        snapshot1_json_serial = json.dumps(snapshot1_json, ensure_ascii=False, sort_keys=True)
+        snapshot1_json_ct  = crypt_helper.encrypt_bytes(snapshot1_json_serial)
 
+        log.v('snapshot1 id: ' + snapshot1_id + "\nsnapshot1 json: " + snapshot1_json_serial)
 
+        cursor.execute(""" INSERT INTO uvs_schema.snapshots(snapid, snapinfo_json) VALUES (%(snapid)s, %(snap_json)s) 
+                           ON CONFLICT DO NOTHING ;""",
+                       {'snapid': snapshot1_id, 'snap_json': psycopg2.Binary(snapshot1_json_ct)}  )
 
-
-
-
-        # -------------------------------------------------------------------------- sample data for
-        # -------------------------------------------------------------------------- sample data for
-
-
-
-
-
-        # cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
-        # %(bpid)s, %(bp)s    );""", {'bpid': sample_file1_fp, 'bp': psycopg2.Binary(sample_file1_bytes) } )
-        #
-        # cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
-        # %(bpid)s, %(bp)s    );""", {'bpid': sample_file2_fp, 'bp': psycopg2.Binary(sample_file2_bytes) } )
-        #
-        # cursor.execute(""" INSERT INTO uvs_schema.bit_patterns(bpid, bp) VALUES (
-        # %(bpid)s, %(bp)s    );""", {'bpid': sample_file3_fp, 'bp': psycopg2.Binary(sample_file3_bytes) } )
-
-
-        # ----------------------------------------------------------------------------- sample data for trees  table
-        tree1 = {}
 
 
 

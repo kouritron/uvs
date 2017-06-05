@@ -116,6 +116,10 @@ def v(msg, label=True):
 def fp(msg, label=True):
     """ print log msgs related to objects and their fingerprints . """
 
+    # comment/uncomment to disable
+    if True:
+        return
+
     final_msg = None
 
     if label:

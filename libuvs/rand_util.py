@@ -5,7 +5,12 @@ import log
 
 import systemdefaults as sdef
 import hash_util
-import time
+
+import random as rand_src_debug_only
+
+# this is for debug mode only. it will run upon importing this module.
+if sdef._NOT_SO_RAND_SNAPSHOT_ID:
+    rand_src_debug_only.seed(10)
 
 
 def get_new_random_salt_for_current_mode():
@@ -58,14 +63,18 @@ def get_new_random_filename():
 
 
 def get_new_random_snapshot_id():
-    """ Return a new random id to be used as new snapshot id. """
-    global last_id_used
+    """ Return a new random id to be used as new snapshot id. 
+     return value will be hex encoded string. 
+     """
 
+    # this is for debug mode only.
     if sdef._NOT_SO_RAND_SNAPSHOT_ID:
 
-        result = int(time.time()*1000000)
+        log.vvvv("Random snapshot ids are seeded. This for debug only, don't use this in production.")
 
-        log.fefr("get_new_random_snapshot_id() returning. new sid is: \n " + result)
+        result = hash_util.get_digest_for_bytes(str(rand_src_debug_only.random()) )
+
+        log.fefrv("get_new_random_snapshot_id() returning. new snapid (seeded rand src) is: \n " + result)
         return result
 
     # read a lot of data from os random source in different syscalls for more randomness
@@ -76,8 +85,8 @@ def get_new_random_snapshot_id():
     for i in range(0, 40):
         rand_chunks.append(os.urandom(read_size))
 
-    result = hash_util.get_uvs_fingerprint( "".join(rand_chunks) )
+    result = hash_util.get_digest_for_bytes("".join(rand_chunks))
 
-    log.fefr("get_new_random_snapshot_id() returning. new sid is: \n " + result)
+    log.fefrv("get_new_random_snapshot_id() returning. new snapid (os rand src) is: \n " + result)
 
     return result

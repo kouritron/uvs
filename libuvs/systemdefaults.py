@@ -26,7 +26,7 @@ _NOT_SO_RAND_SNAPSHOT_ID = True
 
 _SKIP_ENCRYPTION = True
 
-if _SKIP_ENCRYPTION: print "\033[1;31m" + "\n\n **** Warning system is set to skip encryption **** \n\n" + "\033[0;0m"
+if _SKIP_ENCRYPTION: print "\033[1;31m" + "\n**** Warning system is set to skip encryption ****\n" + "\033[0;0m"
 
 # this is where the ciphertext blobs live,  dont put any source files or anything else that needs protection in here.
 # Remember the goal is that this folder + secret passphrase is enough to recover the entire repo and its history

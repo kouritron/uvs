@@ -109,7 +109,7 @@ class UVSCryptHelper(object):
         # derive key returns a bytes object (no hex or base64 encoding here)
         kdf_output_key = kdf_util.derive_key(key_material=usr_pass, salt=salt.decode('hex'), key_len=total_key_len)
 
-        log.hazard('kdf produced key in hex: \n' + str(kdf_output_key.encode('hex')))
+        #log.hazard('kdf produced key in hex: \n' + str(kdf_output_key.encode('hex')))
 
         # the first uvsfp_key_len many bytes are for keyed fingerprinting of objects
         self.uvsfp_key_bytes = kdf_output_key[:uvsfp_key_len]
