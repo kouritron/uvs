@@ -14,21 +14,22 @@ import error
 
 
 
-class DAL(object):
+class DAO(object):
 
     def __init__(self):
-        super(DAL, self).__init__()
+        super(DAO, self).__init__()
 
-        log.fefrv("++++++++++++++++++++++++++++++++ dal init called")
+        log.fefrv("++++++++++++++++++++++++++++++++ Init called on Postgres DAO.")
 
-        # TODO remove the hard codes
+        # TODO remove the hard codes or at least move to system defaults.
+        # like there would be a default backend there and a dict of info required to use it.
         self._connection = psycopg2.connect(user='uvsusr1', database='uvsdb', password='IwantRISCVryzen8761230110',
                                             host='192.168.24.120', port=5432)
 
-        log.vvvv("connection: " + str(self._connection))
+        log.vvvv("created psql connection: " + str(self._connection))
 
         self._create_schema()
-        self._populate_db_with_sample_set1()
+        #self._populate_db_with_sample_set1()
 
 
     def _drop_schema(self):
@@ -146,32 +147,30 @@ class DAL(object):
         # multiple connection objects may or may not see each others changes immediately (check ISOLATION LEVEL)
         self._connection.commit()
 
+    def set_repo_public_doc(self, public_doc):
+        """ Every repository has exactly one JSON object called public doc.
+        This method sets that record to the supplied argument, overwriting a previous existing one, if needed.
+        """
 
-    def _populate_db_with_sample_set1(self):
-        """ load data set 1 into the db. """
+        public_doc_serialized = json.dumps(public_doc, ensure_ascii=False, sort_keys=True)
+
 
         cursor = self._connection.cursor()
 
-        # -------------------------------------------------------------------------- sample data for public table
-        sample_pass = 'weakpass123'
-
-        public_info = {}
-
-        # fix the salt for sample data set 1 for testing purposes, in a real repo this should come from
-        # cm.get_new_random_salt()
-        public_info['salt'] = '596381b4268e6811cbf9614c3fa0981515223600f49ab12fc2f783729399a31e'
-        public_info['uvs_version'] = _version.get_version()
-        public_info['fingerprinting_algo'] = cm.get_uvs_fingerprinting_algo_desc()
-
-        public_info_serialized = json.dumps(public_info, ensure_ascii=False, sort_keys=True)
-
-        log.vvvv(public_info_serialized)
-
+        # there can only be one public doc.
+        cursor.execute(""" DELETE FROM uvs_schema.public; """)
 
         cursor.execute(""" INSERT INTO uvs_schema.public(public_json) VALUES (
-         %(serialized)s    );""", {'serialized': psycopg2.Binary(public_info_serialized)})
+         %(serialized)s    );""", {'serialized': psycopg2.Binary(public_doc_serialized)})
 
+        # Done public record is set
         self._connection.commit()
+
+    def get_repo_public_doc(self):
+        """ Retrieve and return this repository's public document. """
+
+
+        cursor = self._connection.cursor()
 
         # get the data back
         cursor.execute(""" SELECT * FROM uvs_schema.public; """)
@@ -181,25 +180,29 @@ class DAL(object):
         log.vvvv("Got back public json from db, first row type: " + str(type(first_row)))
         log.vvvv('First row as str: ' + str(first_row))
 
-        public_info_from_db_serial = str(first_row)
+        public_doc_from_db_serial = str(first_row)
 
-        # it maybe that the one from db has unicode objects in it, but == is str equality so we should still pass
-        # this before going forward.
-        assert public_info_serialized == public_info_from_db_serial
+        public_doc_from_db = json.loads(public_doc_from_db_serial)
 
-        public_info_from_db = json.loads(public_info_from_db_serial)
-
-        log.v("public info dict now, after getting it back from db: ")
-        log.v( public_info_from_db )
+        log.v("found this public document in the db: ")
+        log.v( public_doc_from_db )
 
 
-        assert  public_info_from_db.has_key('salt')
+        assert  public_doc_from_db.has_key('salt')
 
         # salt is there, make sure its a str object (or bytes) but not unicode.
-        public_info_from_db['salt'] = str(public_info_from_db['salt'])
+        public_doc_from_db['salt'] = str(public_doc_from_db['salt'])
 
-        crypt_helper = cm.UVSCryptHelper(usr_pass=sample_pass, salt=public_info_from_db['salt'])
+        # close the transaction
+        self._connection.commit()
 
+        return  public_doc_from_db
+
+
+    def _populate_db_with_sample_set1(self):
+        """ load data set 1 into the db. """
+
+        cursor = self._connection.cursor()
 
         # -------------------------------------------------------- some sample segments and files
         #  we have files hello.py morning.py afternoon.py

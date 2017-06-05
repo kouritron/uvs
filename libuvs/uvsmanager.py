@@ -19,6 +19,29 @@ class UVSManager(object):
 
         log.fefrv("++++++++++++++++++++++++++++++++ UVSManager init called")
 
+        self._dao = dal_psql.DAO()
+
+
+
+
+    def init_new_repo(self, user_pass ):
+        """ Create a empty new uvs repository with the supplied password. """
+
+        assert user_pass != None
+
+        public_document = {}
+
+        public_document['salt'] = cm.get_new_random_salt()
+        public_document['uvs_version'] = _version.get_version()
+        public_document['fingerprinting_algo'] = cm.get_uvs_fingerprinting_algo_desc()
+
+        log.v(repr(public_document))
+
+        crypt_helper = cm.UVSCryptHelper(usr_pass=user_pass, salt=public_document['salt'])
+
+        self._dao.set_repo_public_doc(public_doc=public_document)
+
+
 
 
 
@@ -51,12 +74,16 @@ class UVSManager(object):
 
 
 if '__main__' == __name__:
-    log.vvvv(">> creating DAL")
-    dal = dal_psql.DAL()
+    # log.vvvv(">> creating DAL")
+    # dao = dal_psql.DAO()
 
-    dest_dir = "../sample_repo"
-    if not os.path.exists(dest_dir):
-        os.makedirs(dest_dir)
+    uvs_mgr = UVSManager()
+    uvs_mgr.init_new_repo(user_pass= 'weakpass123')
+
+
+    #dest_dir = "../sample_repo"
+    #if not os.path.exists(dest_dir):
+    #    os.makedirs(dest_dir)
 
     #checkout_snapshot(snapid="446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985", dest_dir_path=dest_dir)
 

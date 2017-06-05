@@ -14,17 +14,17 @@ if sdef._NOT_SO_RAND_SNAPSHOT_ID:
 
 
 def get_new_random_salt():
-    """ Return a new salt for key derivation. Based on the defaults of the current crypt mode.
+    """ Return a new salt for key derivation. returns a bytes object with the underlying bytes of the salt.
+    not hex or base64 encoded. Take the bytes and use it as the salt.
      """
-    log.fefrv("get_new_random_salt_for_current_mode() called")
+    log.fefrv("get_new_random_salt() called")
 
     size = 32
 
-    if sdef._INSECURE_RAND_SALT():
-        temp = b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        factor = (size // len(temp)) + 1
-        temp2 = temp * factor
-        return temp2[:size]
+    if sdef._INSECURE_RAND_SALT:
+        # fixed salt for testing
+        return '596381b4268e6811cbf9614c3fa0981515223600f49ab12fc2f783729399a31e'.decode('hex')
+
 
     return os.urandom(size)
 
