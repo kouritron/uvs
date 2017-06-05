@@ -98,18 +98,18 @@ class DAL(object):
 
 
         # Trees table, i dont believe postgres table names are case sensitive.
-        # tid is the fingerprint of r1ct of the tree contents
+        # tid is the uvs fp the tree contents
         # tree is json that describes whats in this tree.
         cursor.execute("""CREATE TABLE IF NOT EXISTS trees (
         tid char(%(fp_size)s) NOT NULL,
-        tree BYTEA,
+        tree_json BYTEA,
         PRIMARY KEY (tid)
         );
         """, {'fp_size': fp_size_hex_enc} )
 
 
         # BYTEA type has 1 GB max size limit in postgres
-        # fid is the fingerprint of the r1ct (round 1 cipher text) of the file content
+        # fid is the uvs fp of the file content
         # finfo is json of information about this fid. Most important part is a list of segments that make up this file
         # dereference the segments table to find the contents of this file.
         cursor.execute("""CREATE TABLE IF NOT EXISTS files (
@@ -121,7 +121,7 @@ class DAL(object):
 
 
         # BYTEA type has 1 GB max size limit in postgres
-        # sid is the fingerprint of the r1ct (round 1 cipher text) of this segment
+        # sgid is the uvsfp of this segment
         cursor.execute("""CREATE TABLE IF NOT EXISTS segments (
         sgid char(%(fp_size)s) NOT NULL,
         segment BYTEA,
@@ -160,7 +160,7 @@ class DAL(object):
         public_info['uvs_version'] = _version.get_version()
         public_info['fingerprinting_algo'] = cm.get_uvs_fingerprinting_algo_desc()
 
-        public_info_serialized = json.dumps(public_info, ensure_ascii=False, indent=4, sort_keys=True)
+        public_info_serialized = json.dumps(public_info, ensure_ascii=False, sort_keys=True)
 
         log.vvvv(public_info_serialized)
 
@@ -198,7 +198,7 @@ class DAL(object):
         crypt_helper = cm.UVSCryptHelper(usr_pass=sample_pass, salt=public_info_from_db['salt'])
 
 
-        # -------------------------------------------------------- assume we have directory like this, to be committed
+        # -------------------------------------------------------- some sample segments and files
         #  we have files hello.py morning.py afternoon.py
 
         f1_bytes = b'''\n\n\n print "hello" \n\n\n'''
@@ -259,7 +259,7 @@ class DAL(object):
                        {'sgid': f3_s2_fp,
                         'segment': psycopg2.Binary(crypt_helper.encrypt_bytes(f3_s2))}  )
 
-        # -------------------------------------------------------------------------- sample data for
+        # -------------------------------------------------------------------------- sample data for files table
         # lets add some files.
 
         file1_json = {}
@@ -269,8 +269,8 @@ class DAL(object):
         file1_json['verify_fid'] = f1_fp
 
         # 'segments' is a list of 2-tuples, (sgid, offset)
-        # for example (sg001, 0)  means segment sg001 contains len(sg001) many bytes of this file starting from offset 0
-        # for example (sg002, 2100)  means segment sg002 contains len(sg002) many bytes of this file starting from offset 2100
+        # i.e. (sg001, 0)  means segment sg001 contains len(sg001) many bytes of this file starting from offset 0
+        # i.e. (sg002, 2100) means segment sg002 contains len(sg002) many bytes of this file starting from offset 2100
         file1_json['segments'] = []
         file1_json['segments'].append( (f1_s1_fp, 0) )
         file1_json['segments'].append( (f1_s2_fp, len(f1_s1)) )
@@ -293,19 +293,19 @@ class DAL(object):
         file3_json['segments'].append((f3_s2_fp, len(f3_s1)))
 
 
-        tmp_json = json.dumps(file1_json, ensure_ascii=False, indent=0, sort_keys=True)
+        tmp_json = json.dumps(file1_json, ensure_ascii=False, sort_keys=True)
         tmp_json = crypt_helper.encrypt_bytes(tmp_json)
 
         cursor.execute(""" INSERT INTO uvs_schema.files(fid, finfo_json) VALUES (%(fid)s, %(finfo_json)s) 
                            ON CONFLICT DO NOTHING ;""", {'fid': f1_fp, 'finfo_json': psycopg2.Binary(tmp_json)}  )
 
-        tmp_json = json.dumps(file2_json, ensure_ascii=False, indent=0, sort_keys=True)
+        tmp_json = json.dumps(file2_json, ensure_ascii=False, sort_keys=True)
         tmp_json = crypt_helper.encrypt_bytes(tmp_json)
 
         cursor.execute(""" INSERT INTO uvs_schema.files(fid, finfo_json) VALUES (%(fid)s, %(finfo_json)s) 
                            ON CONFLICT DO NOTHING ;""", {'fid': f2_fp, 'finfo_json': psycopg2.Binary(tmp_json)})
 
-        tmp_json = json.dumps(file3_json, ensure_ascii=False, indent=0, sort_keys=True)
+        tmp_json = json.dumps(file3_json, ensure_ascii=False, sort_keys=True)
         tmp_json = crypt_helper.encrypt_bytes(tmp_json)
 
         cursor.execute(""" INSERT INTO uvs_schema.files(fid, finfo_json) VALUES (%(fid)s, %(finfo_json)s) 
@@ -313,16 +313,41 @@ class DAL(object):
 
 
 
-
-        # -------------------------------------------------------------------------- sample data for
+        # -------------------------------------------------------------------------- sample data for tree
         # lets add some trees
 
+        tree1_json = {}
+        tree1_json['tids'] = []
+        tree1_json['fids'] = []
+
+        # fids is a list of 2-tuples (name, fid) the list has to be sorted
+        tree1_json['fids'].append( ("hello.py", f1_fp) )
+        tree1_json['fids'].append( ("morning.py", f2_fp) )
+        tree1_json['fids'].append( ("afternoon.py", f3_fp) )
+
+        # it doesnt matter much what order things get sorted in, as long as it is deterministic.
+
+        # this says sort by elem[0] first and in case of ties sort by elem[1], i think just sort woulda done the same.
+        tree1_json['fids'].sort(key=lambda elem: (elem[0], elem[1]) )
+        #tree1_json['fids'].sort()
+
+
+        tree1_json_serial = json.dumps(tree1_json, ensure_ascii=False, sort_keys=True)
+
+        # get the fingerprint and ciphertext
+        tree1_fp = crypt_helper.get_uvsfp(tree1_json_serial)
+        tree1_ct = crypt_helper.encrypt_bytes(tree1_json_serial)
+
+
+        log.vvvv('tree1 fp: ' + tree1_fp + "\ntree1 json: " + tree1_json_serial)
+
+
+        cursor.execute(""" INSERT INTO uvs_schema.trees(tid, tree_json) VALUES (%(tid)s, %(tree_json)s) 
+                           ON CONFLICT DO NOTHING ;""", {'tid': tree1_fp, 'tree_json': psycopg2.Binary(tree1_ct)}  )
 
 
 
-
-        # -------------------------------------------------------------------------- sample data for
-        # lets add some snapshots (commits)
+        # -------------------------------------------------------------------------- sample snapshots (commits)
 
 
 
