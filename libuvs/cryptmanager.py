@@ -198,7 +198,10 @@ class UVSCryptHelper(object):
             raise NotImplementedError('un-supported or not implemented hash choice')
 
 
-
+        # cryptography library recommends that the key to the HMAC be same size as the digest_size of the underlying
+        # PRF. For detailed discussion read rfc2104. RFC2104 recommends that the key be at least as long as
+        # the digest size. It also says if the key is larger than the block size of underlying algo, it will be
+        # hashed first and then use the result for HMAC key.
         hmac_func = hmac.HMAC(self.uvsfp_key_bytes, hash_func, backend=default_backend())
 
         hmac_func.update(message)

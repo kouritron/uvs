@@ -8,6 +8,7 @@ _DISABLE_LOG_CLASS_VVVV = True
 _DISABLE_LOG_CLASS_FEFR = False
 _DISABLE_LOG_CLASS_FEFRV = True
 _DISABLE_LOG_CLASS_FP = True
+_DISABLE_LOG_CLASS_DAO = False
 
 
 
@@ -149,6 +150,21 @@ def fp(msg, label=True):
 
     print term_light_yellow + final_msg + term_reset
 
+#-----------------------------------------------------------------------------------------------------------------------
+def dao(msg, label=True):
+    """ print log msgs related to objects and their fingerprints . """
+
+    if _DISABLE_LOG_CLASS_DAO:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'dao log: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_green + final_msg + term_reset
 
 #-----------------------------------------------------------------------------------------------------------------------
 def hazard(msg, label=True):

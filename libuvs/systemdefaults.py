@@ -23,7 +23,7 @@ _INSECURE_RAND_SALT = False
 
 _NOT_SO_RAND_SNAPSHOT_ID = True
 
-_SKIP_ENCRYPTION = True
+_SKIP_ENCRYPTION = False
 
 if _SKIP_ENCRYPTION: print "\033[1;31m" + "\n**** Warning system is set to skip encryption ****\n" + "\033[0;0m"
 
