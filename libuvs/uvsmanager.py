@@ -11,6 +11,7 @@ import systemdefaults as sdef
 import _version
 import uvs_errors
 import dal_psql
+import dal_sqlite
 
 
 
@@ -21,7 +22,8 @@ class UVSManager(object):
 
         log.fefrv("++++++++++++++++++++++++++++++++ UVSManager init called")
 
-        self._dao = dal_psql.DAO()
+        #self._dao = dal_psql.DAO()
+        self._dao = dal_sqlite.DAO()
 
 
 
@@ -41,7 +43,9 @@ class UVSManager(object):
 
         log.vvv(repr(public_document))
 
-        self._dao.set_repo_public_doc(public_doc=public_document)
+        public_doc_serialized = json.dumps(public_document, ensure_ascii=False, sort_keys=True)
+
+        self._dao.set_repo_public_doc(public_doc=public_doc_serialized)
 
         self._crypt_helper = cm.UVSCryptHelper(usr_pass=user_pass, salt=public_document['salt'])
 
@@ -58,11 +62,14 @@ class UVSManager(object):
         if None == public_document:
             raise uvs_errors.UVSErrorInvalidRepository("No public document found in this repository. ")
 
-        assert isinstance(public_document, dict)
+        public_doc_dict = json.loads(public_document)
 
-        log.v("found public document: " + repr(public_document))
+        if not public_doc_dict.has_key('salt'):
+            raise uvs_errors.UVSErrorInvalidRepository('invalid repo, public document does not have a salt in it.')
 
-        self._crypt_helper = cm.UVSCryptHelper(usr_pass=user_pass, salt=public_document['salt'])
+        log.v("dao returned this public document: " + str(public_document))
+
+        self._crypt_helper = cm.UVSCryptHelper(usr_pass=user_pass, salt= str(public_doc_dict['salt']))
 
 
 

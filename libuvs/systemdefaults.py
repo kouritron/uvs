@@ -19,11 +19,11 @@
 ## ATTENTION: if any of these insecure modes are enabled, the system is not secure.
 ## They can be set to assist with debug/devel.
 
-_INSECURE_RAND_SALT = False
+_INSECURE_RAND_SALT = True
 
 _NOT_SO_RAND_SNAPSHOT_ID = True
 
-_SKIP_ENCRYPTION = False
+_SKIP_ENCRYPTION = True
 
 if _SKIP_ENCRYPTION: print "\033[1;31m" + "\n**** Warning system is set to skip encryption ****\n" + "\033[0;0m"
 

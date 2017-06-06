@@ -1,11 +1,9 @@
 
 
 import psycopg2
-import json
 
 
 import log
-import uvs_errors
 from cryptmanager import get_uvs_fingerprint_size
 
 
@@ -144,16 +142,14 @@ class DAO(object):
 
 
     def set_repo_public_doc(self, public_doc):
-        """ Every repository has exactly one JSON object called public doc.
+        """ Every repository has exactly one record called public doc.
         This method sets that record to the supplied argument, overwriting a previous existing one, if needed.
         """
 
         log.dao("set_repo_public_doc() called on Postgres DAO.")
 
         assert None != public_doc
-        assert isinstance(public_doc, dict)
-
-        public_doc_serialized = json.dumps(public_doc, ensure_ascii=False, sort_keys=True)
+        assert isinstance(public_doc, str) or isinstance(public_doc, bytes)
 
 
         cursor = self._connection.cursor()
@@ -162,7 +158,7 @@ class DAO(object):
         cursor.execute(""" DELETE FROM uvs_schema.public; """)
 
         cursor.execute(""" INSERT INTO uvs_schema.public(public_json) VALUES (
-         %(serialized)s    );""", {'serialized': psycopg2.Binary(public_doc_serialized)})
+         %(serialized)s    );""", {'serialized': psycopg2.Binary(public_doc)})
 
         # Done public record is set
         self._connection.commit()
@@ -173,11 +169,14 @@ class DAO(object):
 
         log.dao("get_repo_public_doc() called on Postgres DAO.")
 
-
         cursor = self._connection.cursor()
 
         # get the data back
         cursor.execute(""" SELECT * FROM uvs_schema.public; """)
+
+        # close the transaction
+        self._connection.commit()
+
 
         # fetchone returns a tuple, and inside the tuple you will find buffer type objects
         query_result = cursor.fetchone()
@@ -188,28 +187,13 @@ class DAO(object):
         log.vvvv("Got back public json from db, first row type: " + str(type(first_row)))
         log.vvvv('First row as str: ' + str(first_row))
 
-        public_doc_from_db_serial = str(first_row)
-
-        public_doc_from_db = json.loads(public_doc_from_db_serial)
-
-        log.vvvv("found this public document in the db: ")
-        log.vvvv( public_doc_from_db )
-
-
-        if not public_doc_from_db.has_key('salt'):
-            raise uvs_errors.UVSErrorInvalidRepository('invalid repo, public document does not have a salt in it.')
-
-        # salt is there, make sure its a str object (or bytes) but not unicode.
-        public_doc_from_db['salt'] = str(public_doc_from_db['salt'])
-
-        # close the transaction
-        self._connection.commit()
+        public_doc_from_db = str(first_row)
 
         return  public_doc_from_db
 
 
     def add_segment(self, sgid, segment_bytes):
-        """ Given a new segment as a (id, bytes) pair, add this segment to the segments table, if it doesnt
+        """ Given a new segment as a (sgid, bytes) pair, add this segment to the segments table, if it doesnt
         Already exist. Do nothing if sgid is already present in the data store. 
         For that reason this call is idempotent.
         Normally in uvs segment_bytes is in ciphertext (except perhaps in debug mode). Its not the Data Store's 
@@ -231,6 +215,7 @@ class DAO(object):
                        ON CONFLICT DO NOTHING ;""", {'sgid': sgid, 'segment': psycopg2.Binary(segment_bytes)})
 
         self._connection.commit()
+
 
     def add_file(self, fid, finfo):
         """Given a new file as a (fid, finfo) pair, add this file to the files table, if it doesnt
@@ -287,7 +272,10 @@ class DAO(object):
         """Given a new snapshot (commit in other vcs) as a (snapid, snapshot) pair,
          add this snapshot to the snapshots table, if it doesnt already exist. Do nothing if snapid is 
          already present in the data store. For this reason this call is idempotent.
-
+        
+         new snapshots should never have snapid that collides with an existing one in the repo. snapids are
+         random unique identifiers created every time user makes a new snapshot (commit)
+    
         Normally in uvs snapshot is in ciphertext (as str or bytes) (except perhaps in debug mode). 
         Its not the Data Store's responsibility to handle encryption/decryption. 
         I will store and retrieve whatever you give me.
