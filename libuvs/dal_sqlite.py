@@ -27,7 +27,7 @@ class DAO(object):
 
         log.dao("created sqlite connection: " + repr(self._connection))
 
-        self._reset_uvs_tables()
+        #self._reset_uvs_tables()
 
         self._create_schema()
 

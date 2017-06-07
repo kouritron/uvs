@@ -73,6 +73,92 @@ class UVSManager(object):
         self._crypt_helper = cm.UVSCryptHelper(usr_pass=user_pass, salt= str(public_doc_dict['salt']))
 
 
+    def checkin_directory(self, src_dir_path, snapshot_msg, author_name, author_email):
+        """ Given a directory pathname, make a snapshot of it and save the ciphertext to uvs. 
+        returns the snapshot id of the newly created snapshot. 
+        """
+        assert None != self._dao
+        assert None != self._crypt_helper
+        assert isinstance(snapshot_msg, str) or isinstance(snapshot_msg, bytes) or isinstance(snapshot_msg, unicode)
+        assert isinstance(author_name, str) or isinstance(author_name, bytes) or isinstance(author_name, unicode)
+        assert isinstance(author_email, str) or isinstance(author_email, bytes) or isinstance(author_email, unicode)
+
+        crypt_helper = self._crypt_helper
+
+        names = os.listdir(src_dir_path)
+
+        curr_dir_filenames = [fname for fname in names if os.path.isfile(os.path.join(src_dir_path, fname))]
+
+        log.v(curr_dir_filenames)
+
+        tree_info = {}
+        tree_info['tids'] = []  # add subtrees if this directory has sub directories
+        tree_info['fids'] = []  # add files if this directory has files in it.
+
+        for src_filename in curr_dir_filenames:
+            src_pathname = os.path.join(src_dir_path, src_filename)
+
+            curr_file_bytes = open(src_pathname, 'rb').read()
+            curr_file_fp = crypt_helper.get_uvsfp(curr_file_bytes)
+            curr_file_ct = crypt_helper.encrypt_bytes(curr_file_bytes)
+            self._dao.add_segment(sgid=curr_file_fp, segment_bytes=curr_file_ct)
+
+            finfo = {}
+            finfo['verify_fid'] = curr_file_fp
+            finfo['segments'] = []
+            finfo['segments'].append((curr_file_fp, 0))
+
+            finfo = json.dumps(finfo, ensure_ascii=False, sort_keys=True)
+
+            finfo_ct = crypt_helper.encrypt_bytes(message=finfo)
+
+            self._dao.add_file(fid=curr_file_fp, finfo=finfo_ct)
+
+
+
+            # fids is a list of 2-tuples (name, fid) the list has to be sorted
+            tree_info['fids'].append((src_filename, curr_file_fp))
+
+        # it doesnt matter much what order things get sorted in, as long as it is deterministic.
+        # this says sort by elem[0] first and in case of ties sort by elem[1], i think just sort woulda done the same.
+        tree_info['fids'].sort(key=lambda elem: (elem[0], elem[1]))
+        # tree1_info['fids'].sort()
+
+        tree_info_serial = json.dumps(tree_info, ensure_ascii=False, sort_keys=True)
+
+        # get the fingerprint and ciphertext
+        tree_info_fp = crypt_helper.get_uvsfp(tree_info_serial)
+        tree_info_ct = crypt_helper.encrypt_bytes(tree_info_serial)
+
+        log.vvvv('tree fp: ' + tree_info_fp + "\ntree info json: " + tree_info_serial)
+
+        self._dao.add_tree(tid=tree_info_fp, tree_info=tree_info_ct)
+
+        # give a random id to the new snapshot.
+        new_snapid = rand_util.get_new_random_snapshot_id()
+
+        snapshot_info = {}
+        snapshot_info['verify_snapid'] = new_snapid
+        snapshot_info['root'] = tree_info_fp
+        snapshot_info['msg'] = snapshot_msg
+        snapshot_info['author_name'] = author_name
+        snapshot_info['author_email'] = author_email
+        snapshot_info['snapshot_signature'] = "put gpg signature here to prove the author's identity."
+
+        snapshot_info_serial = json.dumps(snapshot_info, ensure_ascii=False, sort_keys=True)
+        snapshot_info_ct = crypt_helper.encrypt_bytes(snapshot_info_serial)
+
+        log.vv('new snapshot id: ' + new_snapid + "\nnew snapshot json: " + snapshot_info_ct)
+        self._dao.add_snapshot(snapid=new_snapid, snapshot=snapshot_info_ct)
+
+        return new_snapid
+
+
+
+
+
+
+
 
     def make_sample_snapshot_1(self):
         """ Create a test snapshot (commit in other vcs) """
@@ -284,9 +370,6 @@ class UVSManager(object):
 
 
 
-
-
-
     def _recursively_checkout_tree(self, tid, dest_dir_path):
         """ Given a tree id, and dest directory, this method will checkout the files of this tree node 
         into destination directory, and recursively call itself for any sub trees that might exist. """
@@ -370,29 +453,26 @@ class UVSManager(object):
 
         self._recursively_checkout_tree(tid=root_tid, dest_dir_path=dest_dir_path)
 
-    def checkin_directory(self):
-        """ Given a directory pathname, make a snapshot of it and save the ciphertext to uvs. 
-        returns the snapshot id of the newly created snapshot. 
-        """
-        pass
+
 
 if '__main__' == __name__:
-    # log.vvvv(">> creating DAL")
-    # dao = dal_psql.DAO()
 
     uvs_mgr = UVSManager()
     uvs_mgr.setup_for_new_repo(user_pass= 'weakpass123')
     #uvs_mgr.setup_for_existing_repo(user_pass= 'weakpass123')
-    uvs_mgr.make_sample_snapshot_1()
+
+    repo_dir = "../../sample_repo"
+    if not os.path.exists(repo_dir):
+        os.makedirs(repo_dir)
 
 
-    dest_dir = "../../sample_repo"
-    if not os.path.exists(dest_dir):
-        os.makedirs(dest_dir)
+    #uvs_mgr.make_sample_snapshot_1()
 
-    uvs_mgr.checkout_snapshot(snapid="446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985", dest_dir_path=dest_dir,
-                      clear_dest=False)
+    #tmp_snapid = uvs_mgr.checkin_directory(src_dir_path=repo_dir, snapshot_msg="stupid commit msg", author_email="kourosh.sc@gmail.com", author_name="kourosh")
 
-    uvs_mgr.checkin_directory()
+    snapid1 = "446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985"
+
+    uvs_mgr.checkout_snapshot(snapid=snapid1, dest_dir_path=repo_dir, clear_dest=False)
+
 
 
