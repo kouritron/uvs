@@ -9,12 +9,20 @@ _DISABLE_LOG_CLASS_FEFR = False
 _DISABLE_LOG_CLASS_FEFRV = True
 _DISABLE_LOG_CLASS_FP = True
 _DISABLE_LOG_CLASS_DAO = False
+_DISABLE_LOG_CLASS_DAOV = True
+
+# CM and CMV are logs for crypt manager module.
+_DISABLE_LOG_CLASS_CM = True
+_DISABLE_LOG_CLASS_CMV = True
 
 
 
 # the 1 appears to make it bold, color is after that
 term_red   = "\033[1;31m"
+term_light_red   = "\033[0;91m"
 term_green = "\033[0;32m"
+term_light_green = "\033[5;49;92m"
+
 term_yellow = "\033[1;33m"
 term_light_yellow = "\033[0;93m"
 term_blue  = "\033[1;34m"
@@ -75,7 +83,7 @@ def vvvv(msg, label=True):
     final_msg = None
 
     if label:
-        final_msg = 'vvv: ' + str(msg)
+        final_msg = 'vvvv: ' + str(msg)
     else:
         final_msg = str(msg)
 
@@ -152,7 +160,7 @@ def fp(msg, label=True):
 
 #-----------------------------------------------------------------------------------------------------------------------
 def dao(msg, label=True):
-    """ print log msgs related to objects and their fingerprints . """
+    """ print log msgs belonging to the data access objects. """
 
     if _DISABLE_LOG_CLASS_DAO:
         return
@@ -160,11 +168,59 @@ def dao(msg, label=True):
     final_msg = None
 
     if label:
-        final_msg = 'dao log: ' + str(msg)
+        final_msg = 'dao: ' + str(msg)
     else:
         final_msg = str(msg)
 
     print term_green + final_msg + term_reset
+
+#-----------------------------------------------------------------------------------------------------------------------
+def daov(msg, label=True):
+    """ print the verbose log msgs belonging to the data access objects. """
+
+    if _DISABLE_LOG_CLASS_DAOV:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'dao verbose: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_green + final_msg + term_reset
+
+#-----------------------------------------------------------------------------------------------------------------------
+def cmv(msg, label=True):
+    """ print the verbose log msgs belonging to the crypt manager. """
+
+    if _DISABLE_LOG_CLASS_CMV:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'cm verbose: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_red + final_msg + term_reset
+
+#-----------------------------------------------------------------------------------------------------------------------
+def cm(msg, label=True):
+    """ print the  log msgs belonging to the crypt manager. """
+
+    if _DISABLE_LOG_CLASS_CM:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'cm: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_red + final_msg + term_reset
 
 #-----------------------------------------------------------------------------------------------------------------------
 def hazard(msg, label=True):

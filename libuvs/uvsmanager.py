@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 
 import hash_util
 import rand_util
@@ -12,7 +13,7 @@ import _version
 import uvs_errors
 import dal_psql
 import dal_sqlite
-
+from  uvs_errors import *
 
 
 class UVSManager(object):
@@ -211,13 +212,111 @@ class UVSManager(object):
         snapshot1_json_serial = json.dumps(snapshot1_info, ensure_ascii=False, sort_keys=True)
         snapshot1_ct = crypt_help.encrypt_bytes(snapshot1_json_serial)
 
-        log.v('snapshot1 id: ' + snapshot1_id + "\nsnapshot1 json: " + snapshot1_ct)
+        log.vvvv('snapshot1 id: ' + snapshot1_id + "\nsnapshot1 json: " + snapshot1_ct)
         self._dao.add_snapshot(snapid=snapshot1_id, snapshot=snapshot1_ct)
 
 
+    def _checkout_file(self, fname, fid, dest_dir_path):
+        """ Given destination directory path, make a new file called fname (or overwrite fname if already existing)
+        and fill it up with contents so that the file will have uvs fingerprint equal to fid. 
+        after this operation the newly created file's uvsfp should equal to fid, if it does not this operation 
+        will abort. Note that uvs fingerprints are deterministic for a given key, message pair. 
+        the key is derived from this repo's key.
+        """
+
+        assert None != fname
+        assert None != fid
+        assert None != dest_dir_path
+        assert isinstance(fname, str) or isinstance(fname, bytes) or isinstance(fname, unicode)
+
+        log.vvv("checking out file. fname: " + str(fname) + " dst path: " + str(dest_dir_path) + " fid: " + str(fid))
+
+        finfo_ct = self._dao.get_file(fid)
+
+        log.vvvv("finfo ciphertext: " + str(finfo_ct))
+
+        if None == finfo_ct:
+            raise UVSErrorInvalidTree("No such file found for the given file id.")
+
+        finfo_serial = self._crypt_helper.decrypt_bytes(ct=finfo_ct)
+
+        log.vvv("finfo decrypted: " + str(finfo_serial))
+
+        finfo = json.loads(finfo_serial)
+
+        if ('segments' not in finfo) or ('verify_fid' not in finfo):
+            raise UVSErrorInvalidFile("File json does not contain all expected keys.")
+
+        if fid != finfo['verify_fid']:
+            raise UVSErrorTamperDetected("Tamper detected, fid does not match verify fid.")
+
+        # next open a file with temporary filename. write segments into it.
+        temp_pathname = rand_util.choose_unique_random_file(dest_directory=dest_dir_path)
+
+        # open the file in binary mode to write to.
+        fhandle = open(temp_pathname, "wb")
+
+        for sgid, offset in finfo['segments']:
+            log.vvv(">>> (sgid, offset): " + str(sgid) + ", " + str(offset))
+
+            segment_ct = self._dao.get_segment(sgid)
+
+            if None == segment_ct:
+                # TODO close and remove that file we opened.
+                raise UVSErrorInvalidTree("No such segment found for the given sgid.")
+
+            # TODO do segment decrypt in try, so we can delete the temp file. if we didn't have a temp file to
+            # delete we could just let possible tamper errors propagate to the caller
+            # alternative approach would be to write to system temp, but i dont like that. if these files
+            # are sensitive enough to warrant encryption dont write them all over the hard disk and in /tmp and what not
+            segment_bytes = self._crypt_helper.decrypt_bytes(ct=finfo_ct)
+
+            # now seek to offset and write these bytes, 2nd argument (whence or from_what) == 0 means that
+            # offset is calculated from start of the file, look at seek's pydoc
+            fhandle.seek(offset,  0)
+            fhandle.write(segment_bytes)
+
+        # now change the filename from temp name to fname.
+
+        shutil.move(src=temp_pathname, dst=os.path.join(dest_dir_path, fname))
 
 
-def checkout_snapshot(self, snapid, dest_dir_path, clear_dest=False):
+
+
+
+
+
+
+    def _recursively_checkout_tree(self, tid, dest_dir_path):
+        """ Given a tree id, and dest directory, this method will checkout the files of this tree node 
+        into destination directory, and recursively call itself for any sub trees that might exist. """
+
+
+        tree_info_ct = self._dao.get_tree(tid)
+
+        log.vvvv("tree info ciphertext: " + str(tree_info_ct))
+
+        if None == tree_info_ct:
+            raise UVSErrorInvalidTree("No such tree found for the given tid.")
+
+        tree_info_serial = self._crypt_helper.decrypt_bytes(ct=tree_info_ct)
+
+        log.vvv("tree info decrypted: " + str(tree_info_serial))
+
+        tree_info = json.loads(tree_info_serial)
+
+        if ('fids' not in tree_info) or ('tids' not in tree_info):
+            raise UVSErrorInvalidTree("Tree json does not contain all expected keys.")
+
+        for fname, fid in tree_info['fids']:
+            log.vvvv("fname: " + str(fname) +  " fid: " + str(fid))
+            self._checkout_file(fname=fname, fid=fid, dest_dir_path=dest_dir_path)
+
+
+
+
+
+    def checkout_snapshot(self, snapid, dest_dir_path, clear_dest=False):
         """ Given a valid snapshot id, and a directory path with write access,
          checkout the state of the repo at that snapshot and write it in the specified directory. 
 
@@ -234,14 +333,44 @@ def checkout_snapshot(self, snapid, dest_dir_path, clear_dest=False):
         # on windows path names are usually unicode, this might cause problems, be careful.
         assert isinstance(snapid, str) or isinstance(snapid, unicode)
 
-        if not os.path.isdir(dest_dir_path):
-            raise uvs_errors.UVSErrorInvalidDestinationDirectory
+        if clear_dest:
+            # TODO
+            # delete dest with all its files. and mkdir again.
+            pass
 
-            # TODO confirm snap id exists in snapshots table
-            # checkout, get the snapshot, find the root tree id. (raise error if decryption fails, or mac failed.)
-            # checkout tree recursive function:
-            #    assemble the files of this tree, write to disk. (raise error if any objects did decrypt or pass mac)
-            #    call itself recursively on subdirs.
+        if not os.path.isdir(dest_dir_path):
+            raise uvs_errors.UVSErrorInvalidDestinationDirectory("dest directory does not exist or i cant write to.")
+
+        # To checkout, get the snapshot, find the root tree id. (raise error if decryption fails, or mac failed.)
+        # checkout tree recursive function:
+        #    assemble the files of this tree, write to disk. (raise error if any objects did decrypt or pass mac)
+        #    call itself recursively on subdirs.
+        snapshot_info_ct = self._dao.get_snapshot(snapid=snapid)
+
+        if None == snapshot_info_ct:
+            raise UVSErrorInvalidSnapshot("DAO could not find such snapshot with the given snapid.")
+
+        snapshot_info_serial = self._crypt_helper.decrypt_bytes(ct=snapshot_info_ct)
+
+        log.vvv("snapshot decrypted: " + str(snapshot_info_serial))
+
+        snapshot_info = json.loads(snapshot_info_serial)
+
+        if ('verify_snapid' not in snapshot_info) or ('root' not in snapshot_info) or ('msg' not in snapshot_info) \
+                or ('author_name' not in snapshot_info) or ('author_email' not in snapshot_info) :
+            raise UVSErrorInvalidSnapshot("Snapshot json does not contain all expected keys.")
+
+        if snapid != snapshot_info['verify_snapid']:
+            raise UVSErrorTamperDetected('Detected data structure tampering. Perhaps some1 tried to reorder snapshots')
+
+
+        root_tid = snapshot_info['root']
+
+        log.vvvv("root tid is: " + str(root_tid))
+
+        self._recursively_checkout_tree(tid=root_tid, dest_dir_path=dest_dir_path)
+
+
 
 
 if '__main__' == __name__:
@@ -249,15 +378,15 @@ if '__main__' == __name__:
     # dao = dal_psql.DAO()
 
     uvs_mgr = UVSManager()
-    #uvs_mgr.setup_for_new_repo(user_pass= 'weakpass123')
-    uvs_mgr.setup_for_existing_repo(user_pass= 'weakpass123')
+    uvs_mgr.setup_for_new_repo(user_pass= 'weakpass123')
+    #uvs_mgr.setup_for_existing_repo(user_pass= 'weakpass123')
     uvs_mgr.make_sample_snapshot_1()
 
 
+    dest_dir = "../../sample_repo"
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
 
-    #dest_dir = "../sample_repo"
-    #if not os.path.exists(dest_dir):
-    #    os.makedirs(dest_dir)
-
-    #checkout_snapshot(snapid="446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985", dest_dir_path=dest_dir)
+    uvs_mgr.checkout_snapshot(snapid="446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985", dest_dir_path=dest_dir,
+                      clear_dest=False)
 

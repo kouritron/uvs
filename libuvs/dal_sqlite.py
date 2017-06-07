@@ -27,7 +27,7 @@ class DAO(object):
 
         log.dao("created sqlite connection: " + repr(self._connection))
 
-        #self._reset_uvs_tables()
+        self._reset_uvs_tables()
 
         self._create_schema()
 
@@ -157,7 +157,7 @@ class DAO(object):
             return None
 
         first_row = bytes(query_result[0])
-        log.vvvv("Got back public record buffer, cast to bytes look like this: " + str(first_row))
+        log.daov("Got back public record buffer, cast to bytes look like this: " + str(first_row))
 
         return  first_row
 
@@ -185,6 +185,42 @@ class DAO(object):
         self._connection.commit()
 
 
+
+
+    def get_segment(self, sgid):
+        """Given a sgid, find and return the value associated with that key from the segments table.
+        returns None, if no record with that key was found in the table.
+        """
+
+        log.dao("get_segment() called on Sqlite DAO. sgid: " + str(sgid))
+
+        assert None != sgid
+        assert isinstance(sgid, str) or isinstance(sgid, bytes) or isinstance(sgid, unicode), \
+            "tid is not str/bytes/unicode, type(tid): " + str(type(sgid))
+
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT segment FROM  segments WHERE sgid == ?;", (sgid,))
+
+        # close the transaction
+        self._connection.commit()
+
+        # fetchone returns a tuple of buffers
+        query_result = cursor.fetchone()
+
+        log.daov("query result: " + repr(query_result))
+
+        if None == query_result:
+            log.dao("Sqlite DAO Could not find segment with sgid: " + str(sgid))
+            return None
+
+        first_row = bytes(query_result[0])
+        log.daov("Found segment, cast to bytes look like this: " + str(first_row))
+
+        return first_row
+
+
+
     def add_file(self, fid, finfo):
         """Given a new file as a (fid, finfo_bytes) pair, add this file to the files table, if fid doesnt
         Already exist. Do nothing if fid is already present in the data store. For this reason this call is idempotent.
@@ -209,6 +245,40 @@ class DAO(object):
         self._connection.commit()
 
 
+    def get_file(self, fid):
+        """Given a fid, find and return the value associated with that key from the files table.
+        returns None, if no record with that key was found in the table.
+        """
+
+        log.dao("get_file() called on Sqlite DAO. tid: " + str(fid))
+
+        assert None != fid
+        assert isinstance(fid, str) or isinstance(fid, bytes) or isinstance(fid, unicode), \
+            "tid is not str/bytes/unicode, type(tid): " + str(type(fid))
+
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT finfo_json FROM  files WHERE fid == ?;", (fid,))
+
+        # close the transaction
+        self._connection.commit()
+
+        # fetchone returns a tuple of buffers
+        query_result = cursor.fetchone()
+
+        log.daov("query result: " + repr(query_result))
+
+        if None == query_result:
+            log.dao("Sqlite DAO Could not find file with fid: " + str(fid))
+            return None
+
+        first_row = bytes(query_result[0])
+        log.dao("Found file, cast to bytes look like this: " + str(first_row))
+
+        return first_row
+
+
+
     def add_tree(self, tid, tree_info):
         """Given a new tree as a (tid, tree info bytes) pair, add this tree to the trees table, if it doesnt already 
         exist. Do nothing if tid is already present in the data store. For this reason this call is idempotent.
@@ -231,6 +301,39 @@ class DAO(object):
 
         # Done close the transaction
         self._connection.commit()
+
+
+    def get_tree(self, tid):
+        """Given a tid, find and return the value associated with that key from the trees table.
+        returns None, if no record with that key was found in the table.
+        """
+
+        log.dao("get_tree() called on Sqlite DAO. tid: " + str(tid))
+
+        assert None != tid
+        assert isinstance(tid, str) or isinstance(tid, bytes) or isinstance(tid, unicode), \
+            "tid is not str/bytes/unicode, type(tid): " + str(type(tid))
+
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT tree_json FROM trees WHERE tid == ?;", (tid,))
+
+        # close the transaction
+        self._connection.commit()
+
+        # fetchone returns a tuple of buffers
+        query_result = cursor.fetchone()
+
+        log.daov("query result: " + repr(query_result))
+
+        if None == query_result:
+            log.dao("Sqlite DAO Could not find tree with tid: " + str(tid))
+            return None
+
+        first_row = bytes(query_result[0])
+        log.dao("Found tree, cast to bytes look like this: " + str(first_row))
+
+        return first_row
 
 
     def add_snapshot(self, snapid, snapshot):
@@ -261,6 +364,41 @@ class DAO(object):
 
         # Done close the transaction
         self._connection.commit()
+
+
+    def get_snapshot(self, snapid):
+        """Given a snapshot id, find and return the value associated with that key from the snapshot table.
+        returns None, if no record with that key was found in the table.
+        
+        """
+
+        log.dao("get_snapshot() called on Sqlite DAO. snapid: " + str(snapid))
+
+        assert None != snapid
+        assert isinstance(snapid, str) or isinstance(snapid, bytes)
+
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT snapinfo_json FROM snapshots WHERE snapid == ?;", (snapid,) )
+
+        # close the transaction
+        self._connection.commit()
+
+        # fetchone returns a tuple of buffers
+        query_result = cursor.fetchone()
+
+        log.daov("query result: " + repr(query_result))
+
+        if None == query_result:
+            log.dao("Sqlite DAO Could not find snapshot with snapid: " + str(snapid))
+            return None
+
+        first_row = bytes(query_result[0])
+        log.daov("Found snapshot, cast to bytes look like this: " + str(first_row))
+
+        return first_row
+
+
 
 #
 # if "__main__" == __name__:

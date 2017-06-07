@@ -90,3 +90,30 @@ def get_new_random_snapshot_id():
     log.fefrv("get_new_random_snapshot_id() returning. new snapid (os rand src) is: \n " + result)
 
     return result
+
+
+def choose_unique_random_file(dest_directory):
+    """ Find a random file path name that does not exist in directory with path dest_directory. 
+     Does not check whether the file is writable or not. just that the returned value is pathname not 
+     currently existing on this machine.
+     """
+
+    rand_read_size = 16
+
+    candidate_fname = "temp_" + str(os.urandom(rand_read_size).encode('hex'))
+    candidate_pathname = os.path.join(dest_directory, candidate_fname)
+
+    log.vvvv("candidate path name: " + candidate_pathname)
+
+    while os.path.exists( candidate_pathname ):
+
+        # this should never happen unless the len of random information read is is 2 or 3 bytes
+        candidate_fname = "temp_" + str(os.urandom(rand_read_size).encode('hex'))
+        candidate_pathname = os.path.join(dest_directory, candidate_fname)
+
+        log.vvvv("Oops candidate file exists. new candidate path name: " + candidate_pathname)
+
+    log.vvvv("found file with unique random pathname: " + candidate_pathname)
+    return candidate_pathname
+
+

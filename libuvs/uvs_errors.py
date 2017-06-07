@@ -4,7 +4,15 @@ class UVSError(Exception):
     pass
 
 
-class UVSErrorInvalidSnapshotID(UVSError):
+class UVSErrorInvalidSnapshot(UVSError):
+    pass
+
+
+class UVSErrorInvalidTree(UVSError):
+    pass
+
+
+class UVSErrorInvalidFile(UVSError):
     pass
 
 
@@ -15,3 +23,10 @@ class UVSErrorInvalidDestinationDirectory(UVSError):
 class UVSErrorInvalidRepository(UVSError):
     pass
 
+
+class UVSErrorTableDoesNotHaveSuchKey(UVSError):
+    pass
+
+
+class UVSErrorTamperDetected(UVSError):
+    pass

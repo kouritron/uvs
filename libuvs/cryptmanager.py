@@ -16,6 +16,8 @@ import systemdefaults as sdef
 def get_uvs_fingerprinting_algo_desc():
     """ Return a string mentioning the current fingerprinting algorithm in use by the system. """
 
+    log.cmv("get_uvs_fingerprinting_algo_desc() called. ")
+
     if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
         return  "SHA512_HMAC"
 
@@ -57,6 +59,7 @@ def get_uvs_fingerprint_size():
     of fingerprints even if he cant access the content of the files which are encrypted.  
     """
 
+    log.cmv("get_uvs_fingerprint_size() called. ")
 
     return sdef.get_digest_size()
 
@@ -76,8 +79,8 @@ def get_new_random_salt():
 
     result = rand_util.get_new_random_salt().encode('hex')
 
-    log.fefrv("get_new_random_salt() returning. result (as hex encoded): ")
-    log.fefrv(str(result), label=False)
+    log.cmv("get_new_random_salt() returning. result (as hex encoded): ")
+    log.cmv(str(result), label=False)
     return result
 
 
@@ -118,13 +121,15 @@ class UVSCryptHelper(object):
         # the 1st 128 bits of this are used for AES 128 CBC
         # the 2nd 128 bits of this are used for authenticating tokens (HMAC part of fernet)
         fernet_key_bytes = kdf_output_key[uvsfp_key_len: uvsfp_key_len + fernet_key_len]
+        fernet_key_b64 = base64.urlsafe_b64encode(fernet_key_bytes)
 
         log.hazard('uvs fp key in hex: \n' + str(self.uvsfp_key_bytes.encode('hex')))
         log.hazard('fernet key in hex: \n' + str(fernet_key_bytes.encode('hex')))
+        log.hazard('fernet key in b64: \n' + str(fernet_key_b64))
 
         # create a new fernet instance
         # fernet wants key to be encoded with the URL safe variant of base64
-        self._fernet = Fernet(key=base64.urlsafe_b64encode(fernet_key_bytes))
+        self._fernet = Fernet(key=fernet_key_b64)
 
 
 
@@ -134,7 +139,7 @@ class UVSCryptHelper(object):
          and decrypted to recover the original message by someone who posses the key. 
         """
 
-        log.fefrv('encrypt_bytes() called, with message: ' + str(message) )
+        log.cmv('encrypt_bytes() called, with message: ' + repr(message) )
 
         assert isinstance(message, str) or isinstance(message, bytes)
 
@@ -144,7 +149,7 @@ class UVSCryptHelper(object):
 
         fernet_token = self._fernet.encrypt(message)
 
-        #log.vvvv( "fernet ciphertext in hex: " + base64.urlsafe_b64decode(fernet_token).encode('hex'))
+        log.cmv("fernet ciphertext b64: " + str(fernet_token))
 
         return fernet_token
 
@@ -156,7 +161,7 @@ class UVSCryptHelper(object):
         Raise error if ciphertext has been tampered with (MAC fails) or if the key is invalid. 
         """
 
-        log.fefrv('decrypt_bytes() called, with ciphertext: ' + str(ct))
+        log.cmv('decrypt_bytes() called, with ciphertext: ' + str(ct))
 
         assert isinstance(ct, str) or isinstance(ct, bytes)
 
@@ -166,8 +171,9 @@ class UVSCryptHelper(object):
 
         original_message = self._fernet.decrypt(ct)
 
-        log.hazard( "Decrypted the token, original plaintext in hex: " +
-                    base64.urlsafe_b64decode(original_message).encode('hex'))
+        # this is not really hazard log. running on the client the plaintext is to be checkout to disk.
+        # printing keys is hazard log.
+        log.cm("Decrypted the token: " + str(original_message) )
 
         return original_message
 
@@ -177,7 +183,12 @@ class UVSCryptHelper(object):
         message is a byte array (str or bytes object)
         """
 
+        log.cmv('get_uvsfp() called.')
+
+
         assert isinstance(message, str) or isinstance(message, bytes)
+
+
 
         hash_func = None
 
