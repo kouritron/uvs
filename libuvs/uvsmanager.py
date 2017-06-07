@@ -269,7 +269,7 @@ class UVSManager(object):
             # delete we could just let possible tamper errors propagate to the caller
             # alternative approach would be to write to system temp, but i dont like that. if these files
             # are sensitive enough to warrant encryption dont write them all over the hard disk and in /tmp and what not
-            segment_bytes = self._crypt_helper.decrypt_bytes(ct=finfo_ct)
+            segment_bytes = self._crypt_helper.decrypt_bytes(ct=segment_ct)
 
             # now seek to offset and write these bytes, 2nd argument (whence or from_what) == 0 means that
             # offset is calculated from start of the file, look at seek's pydoc
@@ -370,8 +370,11 @@ class UVSManager(object):
 
         self._recursively_checkout_tree(tid=root_tid, dest_dir_path=dest_dir_path)
 
-
-
+    def checkin_directory(self):
+        """ Given a directory pathname, make a snapshot of it and save the ciphertext to uvs. 
+        returns the snapshot id of the newly created snapshot. 
+        """
+        pass
 
 if '__main__' == __name__:
     # log.vvvv(">> creating DAL")
@@ -389,4 +392,7 @@ if '__main__' == __name__:
 
     uvs_mgr.checkout_snapshot(snapid="446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985", dest_dir_path=dest_dir,
                       clear_dest=False)
+
+    uvs_mgr.checkin_directory()
+
 
