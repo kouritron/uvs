@@ -15,6 +15,14 @@ _DISABLE_LOG_CLASS_DAOV = True
 _DISABLE_LOG_CLASS_CM = True
 _DISABLE_LOG_CLASS_CMV = True
 
+# CLI and CLIV are logs for command line UI
+_DISABLE_LOG_CLASS_CLI = False
+_DISABLE_LOG_CLASS_CLIV = True
+
+# UVSMGR and UVSMGRV are logs for command line UI
+_DISABLE_LOG_CLASS_UVSMGR = False
+_DISABLE_LOG_CLASS_UVSMGRV = True
+
 
 
 # the 1 appears to make it bold, color is after that
@@ -25,6 +33,9 @@ term_light_green = "\033[5;49;92m"
 
 term_yellow = "\033[1;33m"
 term_light_yellow = "\033[0;93m"
+term_light_blue = "\033[0;94m"
+term_light_cyan = "\033[0;96m"
+
 term_blue  = "\033[1;34m"
 term_purple = "\033[0;35m"
 term_cyan  = "\033[1;36m"
@@ -239,4 +250,68 @@ def hazard(msg, label=True):
     print term_red + final_msg + term_reset
 
 
+#-----------------------------------------------------------------------------------------------------------------------
+def cli(msg, label=True):
+    """ print the log msgs belonging to the cmd line interface . """
+
+    if _DISABLE_LOG_CLASS_CLI:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'cli: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print final_msg
+
+#-----------------------------------------------------------------------------------------------------------------------
+def cliv(msg, label=True):
+    """ print the log msgs belonging to the cmd line interface verbose category . """
+
+    if _DISABLE_LOG_CLASS_CLIV:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'cli verbose: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print final_msg
+
+#-----------------------------------------------------------------------------------------------------------------------
+def uvsmgr(msg, label=True):
+    """ print the log msgs belonging to the uvs manager. """
+
+    if _DISABLE_LOG_CLASS_UVSMGR:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'uvs manager: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_blue + final_msg + term_reset
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+def uvsmgrv(msg, label=True):
+    """ print the log msgs belonging to the uvs manager verbose category . """
+
+    if _DISABLE_LOG_CLASS_UVSMGRV:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'uvs manager verbose: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_blue + final_msg + term_reset
 

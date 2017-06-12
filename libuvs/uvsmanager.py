@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import errno
 
 import hash_util
 import rand_util
@@ -16,47 +17,77 @@ import dal_sqlite
 from  uvs_errors import *
 
 
+def init_new_uvs_repo_overwrite(repo_root_path):
+    """ Initialize a new empty uvs repository. this function creates a new empty repo overwriting existing
+    shadow files if any is present
+    """
+
+    assert repo_root_path != None
+    assert os.path.isdir(repo_root_path)
+
+    log.uvsmgrv("init_new_uvs_repo_overwrite() called, repo root:" + str(repo_root_path))
+
+    shadow_root_path = os.path.join(repo_root_path, sdef._SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+
+    # delete the file, suppress "file not found" exception, re-raise all other exceptions
+    try:
+        log.uvsmgr("Trying to remove uvs shadow db file if it exists. file path: " + shadow_db_file_path)
+        os.remove(shadow_db_file_path)
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            log.uvsmgr("uvs shadow db file was not found.")
+        else:
+            raise
+
+    # create the shadow directory if it does not exist.
+    try:
+        os.makedirs(shadow_root_path)
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            log.uvsmgr("repo_root/shadow_directory already exists")
+            pass
+
+    public_document = {}
+
+    public_document['salt'] = cm.get_new_random_salt()
+    public_document['uvs_version'] = _version.get_version()
+    public_document['fingerprinting_algo'] = cm.get_uvs_fingerprinting_algo_desc()
+    public_document['encryption'] = cm.get_encryption_algo_desc()
+
+    log.uvsmgr("public doc: " + repr(public_document))
+
+    public_doc_serialized = json.dumps(public_document, ensure_ascii=False, sort_keys=True)
+
+    temp_dao = dal_sqlite.DAO(shadow_db_file_path)
+
+    # create empty tables.
+    temp_dao.create_empty_tables()
+
+    temp_dao.set_repo_public_doc(public_doc=public_doc_serialized)
+
+
 class UVSManager(object):
 
-    def __init__(self):
+    def __init__(self, repo_pass, repo_root_path):
+        """ Initialize a new uvs manager for interacting with an existing uvs repository with the given repo pass.
+
+        supplied password. """
+
         super(UVSManager, self).__init__()
 
-        log.fefrv("++++++++++++++++++++++++++++++++ UVSManager init called")
+        log.uvsmgrv("++++++ initializing new uvs manager")
 
-        #self._dao = dal_psql.DAO()
-        self._dao = dal_sqlite.DAO()
+        assert repo_pass != None
+        assert isinstance(repo_pass, str) or isinstance(repo_pass, bytes) or isinstance(repo_pass, unicode)
 
+        assert repo_root_path != None
+        assert os.path.isdir(repo_root_path)
 
+        shadow_root_path = os.path.join(repo_root_path, sdef._SHADOW_FOLDER_NAME)
+        shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
 
-
-    def setup_for_new_repo(self, user_pass):
-        """ setup this uvs manager for working with a new empty uvs repository with the supplied password. """
-
-        assert user_pass != None
-
-        log.fefrv("setup_for_new_repo() called")
-
-        public_document = {}
-
-        public_document['salt'] = cm.get_new_random_salt()
-        public_document['uvs_version'] = _version.get_version()
-        public_document['fingerprinting_algo'] = cm.get_uvs_fingerprinting_algo_desc()
-
-        log.vvv(repr(public_document))
-
-        public_doc_serialized = json.dumps(public_document, ensure_ascii=False, sort_keys=True)
-
-        self._dao.set_repo_public_doc(public_doc=public_doc_serialized)
-
-        self._crypt_helper = cm.UVSCryptHelper(usr_pass=user_pass, salt=public_document['salt'])
-
-
-    def setup_for_existing_repo(self, user_pass):
-        """ setup this uvs manager for working with existing uvs repository with the supplied password. """
-
-        assert user_pass != None
-
-        log.fefrv("setup_for_existing_repo() called")
+        self._dao = dal_sqlite.DAO(shadow_db_file_path)
 
         public_document =  self._dao.get_repo_public_doc()
 
@@ -68,13 +99,15 @@ class UVSManager(object):
         if not public_doc_dict.has_key('salt'):
             raise uvs_errors.UVSErrorInvalidRepository('invalid repo, public document does not have a salt in it.')
 
-        log.v("dao returned this public document: " + str(public_document))
+        log.uvsmgr("dao returned this public document: " + str(public_document))
 
-        self._crypt_helper = cm.UVSCryptHelper(usr_pass=user_pass, salt= str(public_doc_dict['salt']))
+        self._crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt= str(public_doc_dict['salt']))
+
+        self._repo_root_path = repo_root_path
 
 
-    def checkin_directory(self, src_dir_path, snapshot_msg, author_name, author_email):
-        """ Given a directory pathname, make a snapshot of it and save the ciphertext to uvs. 
+    def take_snapshot(self, snapshot_msg, author_name, author_email):
+        """ Take a snapshot image of this repository  right now and save the cipher text to uvs.shadow db file.
         returns the snapshot id of the newly created snapshot. 
         """
         assert None != self._dao
@@ -85,9 +118,9 @@ class UVSManager(object):
 
         crypt_helper = self._crypt_helper
 
-        names = os.listdir(src_dir_path)
+        names = os.listdir(self._repo_root_path )
 
-        curr_dir_filenames = [fname for fname in names if os.path.isfile(os.path.join(src_dir_path, fname))]
+        curr_dir_filenames = [fname for fname in names if os.path.isfile(os.path.join(self._repo_root_path , fname))]
 
         log.v(curr_dir_filenames)
 
@@ -96,7 +129,7 @@ class UVSManager(object):
         tree_info['fids'] = []  # add files if this directory has files in it.
 
         for src_filename in curr_dir_filenames:
-            src_pathname = os.path.join(src_dir_path, src_filename)
+            src_pathname = os.path.join(self._repo_root_path, src_filename)
 
             curr_file_bytes = open(src_pathname, 'rb').read()
             curr_file_fp = crypt_helper.get_uvsfp(curr_file_bytes)
@@ -130,7 +163,7 @@ class UVSManager(object):
         tree_info_fp = crypt_helper.get_uvsfp(tree_info_serial)
         tree_info_ct = crypt_helper.encrypt_bytes(tree_info_serial)
 
-        log.vvvv('tree fp: ' + tree_info_fp + "\ntree info json: " + tree_info_serial)
+        log.uvsmgrv('tree fp: ' + tree_info_fp + "\ntree info json: " + tree_info_serial)
 
         self._dao.add_tree(tid=tree_info_fp, tree_info=tree_info_ct)
 
@@ -275,11 +308,11 @@ class UVSManager(object):
 
         tree1_json_serial = json.dumps(tree1_info, ensure_ascii=False, sort_keys=True)
 
-        # get the fingerprint and ciphertext
+        # get the fingerprint and cipher text
         tree1_fp = crypt_help.get_uvsfp(tree1_json_serial)
         tree1_ct = crypt_help.encrypt_bytes(tree1_json_serial)
 
-        log.vvvv('tree1 fp: ' + tree1_fp + "\ntree1 json: " + tree1_json_serial)
+        log.uvsmgrv('tree1 fp: ' + tree1_fp + "\ntree1 json: " + tree1_json_serial)
 
         self._dao.add_tree(tid=tree1_fp, tree_info=tree1_ct)
 
@@ -298,7 +331,7 @@ class UVSManager(object):
         snapshot1_json_serial = json.dumps(snapshot1_info, ensure_ascii=False, sort_keys=True)
         snapshot1_ct = crypt_help.encrypt_bytes(snapshot1_json_serial)
 
-        log.vvvv('snapshot1 id: ' + snapshot1_id + "\nsnapshot1 json: " + snapshot1_ct)
+        log.uvsmgrv('snapshot1 id: ' + snapshot1_id + "\nsnapshot1 json: " + snapshot1_ct)
         self._dao.add_snapshot(snapid=snapshot1_id, snapshot=snapshot1_ct)
 
 
@@ -315,18 +348,18 @@ class UVSManager(object):
         assert None != dest_dir_path
         assert isinstance(fname, str) or isinstance(fname, bytes) or isinstance(fname, unicode)
 
-        log.vvv("checking out file. fname: " + str(fname) + " dst path: " + str(dest_dir_path) + " fid: " + str(fid))
+        log.uvsmgr("checking out file. fname: " + str(fname) + " dst path: " + str(dest_dir_path) + " fid: " + str(fid))
 
         finfo_ct = self._dao.get_file(fid)
 
-        log.vvvv("finfo ciphertext: " + str(finfo_ct))
+        log.uvsmgrv("finfo cipher text: " + str(finfo_ct))
 
         if None == finfo_ct:
             raise UVSErrorInvalidTree("No such file found for the given file id.")
 
         finfo_serial = self._crypt_helper.decrypt_bytes(ct=finfo_ct)
 
-        log.vvv("finfo decrypted: " + str(finfo_serial))
+        log.uvsmgr("finfo decrypted: " + str(finfo_serial))
 
         finfo = json.loads(finfo_serial)
 
@@ -343,7 +376,7 @@ class UVSManager(object):
         fhandle = open(temp_pathname, "wb")
 
         for sgid, offset in finfo['segments']:
-            log.vvv(">>> (sgid, offset): " + str(sgid) + ", " + str(offset))
+            log.uvsmgr(">>> (sgid, offset): " + str(sgid) + ", " + str(offset))
 
             segment_ct = self._dao.get_segment(sgid)
 
@@ -377,14 +410,14 @@ class UVSManager(object):
 
         tree_info_ct = self._dao.get_tree(tid)
 
-        log.vvvv("tree info ciphertext: " + str(tree_info_ct))
+        log.uvsmgrv("tree info cipher text: " + str(tree_info_ct))
 
         if None == tree_info_ct:
             raise UVSErrorInvalidTree("No such tree found for the given tid.")
 
         tree_info_serial = self._crypt_helper.decrypt_bytes(ct=tree_info_ct)
 
-        log.vvv("tree info decrypted: " + str(tree_info_serial))
+        log.uvsmgr("tree info decrypted: " + str(tree_info_serial))
 
         tree_info = json.loads(tree_info_serial)
 
@@ -392,25 +425,24 @@ class UVSManager(object):
             raise UVSErrorInvalidTree("Tree json does not contain all expected keys.")
 
         for fname, fid in tree_info['fids']:
-            log.vvvv("fname: " + str(fname) +  " fid: " + str(fid))
+            log.uvsmgrv("fname: " + str(fname) +  " fid: " + str(fid))
             self._checkout_file(fname=fname, fid=fid, dest_dir_path=dest_dir_path)
 
 
 
 
 
-    def checkout_snapshot(self, snapid, dest_dir_path, clear_dest=False):
-        """ Given a valid snapshot id, and a directory path with write access,
-         checkout the state of the repo at that snapshot and write it in the specified directory. 
+    def checkout_snapshot(self, snapid, clear_dest=False):
+        """ Given a valid snapshot id, set the content of working directory to the image of the repository
+        at the time this snapshot id was taken.
 
          By default it will just overwrite the files that collide with this checkout. if clear_dest is set
-         to True it will delete everything at destination except uvs internal subdirs, which are probably
-         and by default called ".uvs_shadow", ".uvs_cache" 
+         to True it will delete everything at destination except uvs internal files/folders.
         """
 
         assert isinstance(clear_dest, bool)
         assert snapid != None
-        assert dest_dir_path != None
+        assert self._repo_root_path != None
         assert isinstance(snapid, str) or isinstance(snapid, bytes)
 
         # on windows path names are usually unicode, this might cause problems, be careful.
@@ -421,8 +453,8 @@ class UVSManager(object):
             # delete dest with all its files. and mkdir again.
             pass
 
-        if not os.path.isdir(dest_dir_path):
-            raise uvs_errors.UVSErrorInvalidDestinationDirectory("dest directory does not exist or i cant write to.")
+        if not os.path.isdir(self._repo_root_path):
+            raise uvs_errors.UVSErrorInvalidDestinationDirectory("repo root dir does not exist or i cant write to.")
 
         # To checkout, get the snapshot, find the root tree id. (raise error if decryption fails, or mac failed.)
         # checkout tree recursive function:
@@ -435,7 +467,7 @@ class UVSManager(object):
 
         snapshot_info_serial = self._crypt_helper.decrypt_bytes(ct=snapshot_info_ct)
 
-        log.vvv("snapshot decrypted: " + str(snapshot_info_serial))
+        log.uvsmgr("snapshot decrypted: " + str(snapshot_info_serial))
 
         snapshot_info = json.loads(snapshot_info_serial)
 
@@ -449,30 +481,31 @@ class UVSManager(object):
 
         root_tid = snapshot_info['root']
 
-        log.vvvv("root tid is: " + str(root_tid))
+        log.uvsmgrv("root tid is: " + str(root_tid))
 
-        self._recursively_checkout_tree(tid=root_tid, dest_dir_path=dest_dir_path)
-
-
-
-if '__main__' == __name__:
-
-    uvs_mgr = UVSManager()
-    uvs_mgr.setup_for_new_repo(user_pass= 'weakpass123')
-    #uvs_mgr.setup_for_existing_repo(user_pass= 'weakpass123')
-
-    repo_dir = "../../sample_repo"
-    if not os.path.exists(repo_dir):
-        os.makedirs(repo_dir)
+        self._recursively_checkout_tree(tid=root_tid, dest_dir_path=self._repo_root_path )
 
 
-    #uvs_mgr.make_sample_snapshot_1()
-
-    #tmp_snapid = uvs_mgr.checkin_directory(src_dir_path=repo_dir, snapshot_msg="stupid commit msg", author_email="kourosh.sc@gmail.com", author_name="kourosh")
-
-    snapid1 = "446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985"
-
-    uvs_mgr.checkout_snapshot(snapid=snapid1, dest_dir_path=repo_dir, clear_dest=False)
-
-
-
+#
+# if '__main__' == __name__:
+#
+#     repo_dir = "/home/lu/kouritron/repo1"
+#     if not os.path.exists(repo_dir):
+#         os.makedirs(repo_dir)
+#
+#     init_new_uvs_repo_overwrite(repo_root_path=repo_dir)
+#
+#     uvs_mgr = UVSManager(repo_pass='weakpass123', repo_root_path=repo_dir)
+#
+#
+#
+#     uvs_mgr.make_sample_snapshot_1()
+#
+#     #tmp_snapid = uvs_mgr.take_snapshot(snapshot_msg="dumb commit", author_email="kourosh.sc@gmail.com", author_name="kourosh")
+#
+#     snapid1 = "446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985"
+#
+#     uvs_mgr.checkout_snapshot(snapid=snapid1, clear_dest=False)
+#
+#
+#

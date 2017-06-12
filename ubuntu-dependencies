@@ -1,0 +1,16 @@
+
+## TODO clean this up
+
+to get the python cryptography library to import run:
+
+sudo apt-get install build-essential python-dev python-pip openssl libssl-dev libffi-dev
+
+now pip can compile and install cryptography 
+
+sudo pip install cryptography 
+ 
+# postgres driver:
+sudo pip install psycopg2
+
+
+

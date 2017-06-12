@@ -2,76 +2,46 @@
 
 import sqlite3
 import os
-import errno
 
 import log
-from cryptmanager import get_uvs_fingerprint_size
-
-
 
 
 
 class DAO(object):
 
-    def __init__(self):
+    def __init__(self, db_file_path):
         super(DAO, self).__init__()
 
-        log.dao("++++++++++++++++++++++++++++++++ Init called on SQLite DAO.")
+        assert None != db_file_path
+        assert isinstance(db_file_path, str) or isinstance(db_file_path, unicode) or isinstance(db_file_path, bytes)
+        assert not os.path.isdir(db_file_path)
 
-        self._dbfile_pathname = "../uvs.db"
+        log.dao("Initializing new sqlite DAO, db file path:" + str(db_file_path))
 
-        #self._drop_db()
-
-        self._connection = sqlite3.connect(self._dbfile_pathname)
+        self._connection = sqlite3.connect(db_file_path)
         #self._connection = sqlite3.connect(':memory:')
 
         log.dao("created sqlite connection: " + repr(self._connection))
 
-        #self._reset_uvs_tables()
 
-        self._create_schema()
-
-
-    def _drop_db(self):
-        """ Delete the database file using os.remove """
-
-        log.dao("_drop_db() called on SQLite DAO.")
-
-        # delete the file, suppress "file not found" exception, re-raise all other exceptions
-        try:
-            os.remove(self._dbfile_pathname)
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
-
-
-
-    def _reset_uvs_tables(self):
-        """ Clears all uvs tables except the public record. """
-
-        log.dao("_reset_uvs_tables() called on SQLite DAO.")
-
-        cursor = self._connection.cursor()
-
-        # clear table in case previous records are there.
-        cursor.execute(""" DROP TABLE IF EXISTS snapshots; """)
-        cursor.execute(""" DROP TABLE IF EXISTS trees; """)
-        cursor.execute(""" DROP TABLE IF EXISTS files; """)
-        cursor.execute(""" DROP TABLE IF EXISTS segments; """)
-
-        self._connection.commit()
-
-
-    def _create_schema(self):
+    def create_empty_tables(self):
         """ Create empty Tables in the sqlite database to which this object is connected to.. """
 
-        log.dao("_create_schema() called on Sqlite DAO.")
+        log.dao("create_empty_tables() called on Sqlite DAO.")
 
         cursor = self._connection.cursor()
 
         # sqlite data types of interest are most likely just these:
         # TEXT. The value is a text string, stored using the database encoding (UTF-8, UTF-16BE or UTF-16LE).
         # BLOB. The value is a blob of data, stored exactly as it was input.
+
+
+        # clear table in case previous records are there.
+        cursor.execute(""" DROP TABLE IF EXISTS snapshots; """)
+        cursor.execute(""" DROP TABLE IF EXISTS trees; """)
+        cursor.execute(""" DROP TABLE IF EXISTS files; """)
+        cursor.execute(""" DROP TABLE IF EXISTS segments; """)
+        cursor.execute(""" DROP TABLE IF EXISTS public; """)
 
         # IMPORTANT: never use str concat (+) or python format specifiers (old style or new) to
         # put values into queries, neglecting this will open u up to SQL injection attack. Instead do this
@@ -166,7 +136,7 @@ class DAO(object):
         """ Given a new segment as a (sgid, bytes) pair, add this segment to the segments table, if it doesnt
         Already exist. Do nothing if sgid is already present in the data store. 
         For that reason this call is idempotent.
-        Normally in uvs segment_bytes is in ciphertext (except perhaps in debug mode). Its not the Data Store's 
+        Normally in uvs segment_bytes is in cipher text (except perhaps in debug mode). Its not the Data Store's
         responsibility to handle encryption/decryption, I will store and retrieve whatever you give me.
         """
 
@@ -225,7 +195,7 @@ class DAO(object):
         """Given a new file as a (fid, finfo_bytes) pair, add this file to the files table, if fid doesnt
         Already exist. Do nothing if fid is already present in the data store. For this reason this call is idempotent.
 
-        Normally in uvs finfo is in ciphertext (as str or bytes) (except perhaps in debug mode). 
+        Normally in uvs finfo is in cipher text (as str or bytes) (except perhaps in debug mode).
         Its not the Data Store's responsibility to handle encryption/decryption. 
         I will store and retrieve whatever you give me.
         """
@@ -283,7 +253,7 @@ class DAO(object):
         """Given a new tree as a (tid, tree info bytes) pair, add this tree to the trees table, if it doesnt already 
         exist. Do nothing if tid is already present in the data store. For this reason this call is idempotent.
 
-        Normally in uvs tree_info is in ciphertext (as str or bytes) (except perhaps in debug mode). 
+        Normally in uvs tree_info is in cipher text (as str or bytes) (except perhaps in debug mode).
         Its not the Data Store's responsibility to handle encryption/decryption. 
         I will store and retrieve whatever you give me.
         """
@@ -344,7 +314,7 @@ class DAO(object):
          new snapshots should never have snapid that collides with an existing one in the repo. snapids are
          random unique identifiers created every time user makes a new snapshot (commit)
 
-        Normally in uvs snapshot is in ciphertext (as str or bytes) (except perhaps in debug mode). 
+        Normally in uvs snapshot is in cipher text (as str or bytes) (except perhaps in debug mode).
         Its not the Data Store's responsibility to handle encryption/decryption. 
         I will store and retrieve whatever you give me.
         """

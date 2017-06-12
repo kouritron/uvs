@@ -33,6 +33,8 @@ if _SKIP_ENCRYPTION: print "\033[1;31m" + "\n**** Warning system is set to skip 
 # about the source files in this repo or their history
 _SHADOW_FOLDER_NAME = '.uvs_shadow'
 
+_SHADOW_DB_FILE_NAME = 'uvs.db'
+
 # this folder may contain information that helps the edvcs do its job and is not part of the source
 # but they are not in ciphertext and not to be ever pushed to the cloud.
 #
@@ -90,6 +92,29 @@ class HashAlgo(object):
 
 
 
+class EncryptionAlgo(object):
+    """" Enumerate different choices for the symmetric encryption algorithm. """
+
+    # use Fernet version 0x80 as implemented by the python cryptography library w/- modifications
+    FERNET_0x80 = 0
+
+    # use AES 256 in CBC mode for encryption and HMAC sha256 for integrity
+    AES_256_HMAC_SHA256 = 1
+
+    # use AES 256 in CBC mode for encryption and HMAC sha384 for integrity
+    AES_256_HMAC_SHA384 = 2
+
+    # use camellia 256 in CBC mode for encryption and HMAC sha256 for integrity
+    CAMELLIA_256_HMAC_SHA256  = 3
+
+    # use camellia 256 in CBC mode for encryption and HMAC sha384 for integrity
+    CAMELLIA_256_HMAC_SHA384  = 4
+
+    # TODO: add more, perhaps fernet first and then another round camellia 256 with no timestamps.
+
+
+
+
 
 
 class KDFAlgo(object):
@@ -114,6 +139,9 @@ _REPO_HASH_CHOICE = HashAlgo.SHA224
 
 ## change this global to use a diff kdf.
 _REPO_KDF_CHOICE = KDFAlgo.PBKDF2_WITH_SHA256
+
+## change this global to use a different symmetric cipher.
+_REPO_ENCRYPTION_ALGO_CHOICE = EncryptionAlgo.FERNET_0x80
 
 
 def get_digest_size():

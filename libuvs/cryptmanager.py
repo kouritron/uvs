@@ -13,6 +13,29 @@ import kdf_util
 import systemdefaults as sdef
 
 
+def get_encryption_algo_desc():
+    """ Return a string representation of the system's current default encryption algorithm. """
+
+    log.cmv("get_encryption_algo_desc() called. ")
+
+    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.FERNET_0x80:
+        return "FERNET_0x80"
+
+    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.AES_256_HMAC_SHA256:
+        return "AES_256_HMAC_SHA256"
+
+    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.AES_256_HMAC_SHA384:
+        return "AES_256_HMAC_SHA384"
+
+    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.CAMELLIA_256_HMAC_SHA256:
+        return "CAMELLIA_256_HMAC_SHA256"
+
+    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.CAMELLIA_256_HMAC_SHA384:
+        return "CAMELLIA_256_HMAC_SHA384"
+
+
+
+
 def get_uvs_fingerprinting_algo_desc():
     """ Return a string mentioning the current fingerprinting algorithm in use by the system. """
 
