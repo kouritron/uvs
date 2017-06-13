@@ -17,7 +17,7 @@ import dal_sqlite
 from  uvs_errors import *
 
 
-def init_new_uvs_repo_overwrite(repo_root_path):
+def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     """ Initialize a new empty uvs repository. this function creates a new empty repo overwriting existing
     shadow files if any is present
     """
@@ -59,12 +59,16 @@ def init_new_uvs_repo_overwrite(repo_root_path):
 
     public_doc_serialized = json.dumps(public_document, ensure_ascii=False, sort_keys=True)
 
+    crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt=public_document['salt'])
+
+    public_doc_serialized_mac_tag = crypt_helper.get_uvsfp(public_doc_serialized)
+
     temp_dao = dal_sqlite.DAO(shadow_db_file_path)
 
     # create empty tables.
     temp_dao.create_empty_tables()
 
-    temp_dao.set_repo_public_doc(public_doc=public_doc_serialized)
+    temp_dao.set_repo_public_doc(public_doc=public_doc_serialized, public_doc_mac_tag=public_doc_serialized_mac_tag)
 
 
 class UVSManager(object):
@@ -89,20 +93,35 @@ class UVSManager(object):
 
         self._dao = dal_sqlite.DAO(shadow_db_file_path)
 
-        public_document =  self._dao.get_repo_public_doc()
+        pub_doc, pub_doc_mac_tag =  self._dao.get_repo_public_doc()
 
-        if None == public_document:
-            raise uvs_errors.UVSErrorInvalidRepository("No public document found in this repository. ")
+        log.uvsmgr("dao returned public document: " + str(pub_doc))
+        log.uvsmgr("dao returned public document MAC tag: " + str(pub_doc_mac_tag))
 
-        public_doc_dict = json.loads(public_document)
+
+        # if any of the pub doc or its mac tag is missing this is an invalid repo.
+        if (None == pub_doc) or (None == pub_doc_mac_tag):
+            raise uvs_errors.UVSErrorInvalidRepository("No valid public document found in this repository. ")
+
+
+        # we need to verify this public doc's MAC tag to make sure its not tampered with.
+        # here is what we do: assume its a valid public record and try to find the salt in it.
+        # use the salt and user pass to derive the keys. now recompute the MAC tag using the keys
+        # if the MAC's match then it was valid, otherwise drop our computations and raise error
+
+        public_doc_dict = json.loads(pub_doc)
 
         if not public_doc_dict.has_key('salt'):
-            raise uvs_errors.UVSErrorInvalidRepository('invalid repo, public document does not have a salt in it.')
+            raise uvs_errors.UVSErrorInvalidRepository('Invalid repo, public document does not have the salt.')
 
-        log.uvsmgr("dao returned this public document: " + str(public_document))
+        tmp_crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt= str(public_doc_dict['salt']))
 
-        self._crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt= str(public_doc_dict['salt']))
+        mac_tag_recomputed = tmp_crypt_helper.get_uvsfp(pub_doc)
 
+        if mac_tag_recomputed != pub_doc_mac_tag:
+            raise UVSErrorTamperDetected("Either the public record was tampered with or you supplied wrong password.")
+
+        self._crypt_helper = tmp_crypt_helper
         self._repo_root_path = repo_root_path
 
 
@@ -486,7 +505,7 @@ class UVSManager(object):
         self._recursively_checkout_tree(tid=root_tid, dest_dir_path=self._repo_root_path )
 
 
-#
+
 # if '__main__' == __name__:
 #
 #     repo_dir = "/home/lu/kouritron/repo1"
@@ -501,11 +520,9 @@ class UVSManager(object):
 #
 #     uvs_mgr.make_sample_snapshot_1()
 #
-#     #tmp_snapid = uvs_mgr.take_snapshot(snapshot_msg="dumb commit", author_email="kourosh.sc@gmail.com", author_name="kourosh")
+#     ### ## tmp_snapid = uvs_mgr.take_snapshot(snapshot_msg="dumb commit", author_email="kourosh.sc@gmail.com", author_name="kourosh")
 #
 #     snapid1 = "446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985"
 #
 #     uvs_mgr.checkout_snapshot(snapid=snapid1, clear_dest=False)
-#
-#
 #

@@ -76,21 +76,28 @@ class DAO(object):
         # every repo has single public record, this is just a json record with some public info about this repo
         # (like public name, salt, optional owner email if needed, ....)
         cursor.execute("""CREATE TABLE IF NOT EXISTS public (
-        public_json BLOB PRIMARY KEY NOT NULL ); """ )
+        public_record BLOB PRIMARY KEY NOT NULL,
+        public_record_mac TEXT NOT NULL ); """ )
 
         # close the transaction
         self._connection.commit()
 
 
-    def set_repo_public_doc(self, public_doc):
-        """ Every repository has exactly one record called public doc.
+    def set_repo_public_doc(self, public_doc, public_doc_mac_tag):
+        """ Every repository has exactly one record called public record (or public document)
+        the public record is not encrypted (has no confidentiality protection), but is MACed (integrity protected)
+        an attacker can always see the public record, but can not forge one without failing the MAC, without knowing
+        the private password of this repository.
+
         This method sets that record to the supplied argument, overwriting a previous existing one, if needed.
         """
 
         log.dao("set_repo_public_doc() called on Sqlite DAO.")
 
         assert None != public_doc
+        assert None != public_doc_mac_tag
         assert isinstance(public_doc, str) or isinstance(public_doc, bytes)
+        assert isinstance(public_doc_mac_tag, str) or isinstance(public_doc_mac_tag, bytes)
 
 
         cursor = self._connection.cursor()
@@ -99,14 +106,16 @@ class DAO(object):
         cursor.execute(""" DELETE FROM public; """)
 
         # sqlite blobs require buffer objects
-        cursor.execute(""" INSERT INTO public(public_json) VALUES (?);""", (buffer(public_doc),) )
+        cursor.execute(""" INSERT INTO public(public_record, public_record_mac) VALUES (?, ?);""",
+                       (buffer(public_doc), public_doc_mac_tag) )
 
         # Done public record is set
         self._connection.commit()
 
 
     def get_repo_public_doc(self):
-        """ Retrieve and return this repository's public document. """
+        """ Retrieve and return this repository's public document and the MAC tag of the public document as
+        a 2-tuple (public record, mac_tag)  """
 
         log.dao("get_repo_public_doc() called on Sqlite DAO.")
 
@@ -126,10 +135,15 @@ class DAO(object):
             log.dao("Sqlite DAO Could not find an existing public record.")
             return None
 
-        first_row = bytes(query_result[0])
-        log.daov("Got back public record buffer, cast to bytes look like this: " + str(first_row))
+        log.daov("query_result: " + repr(query_result))
 
-        return  first_row
+        public_record = bytes(query_result[0])
+        log.dao("public record buffer, cast to bytes: " + str(public_record))
+
+        pub_rec_mac_tag = query_result[1]
+        log.dao("public record mac tag: " + str(pub_rec_mac_tag))
+
+        return  public_record, pub_rec_mac_tag
 
 
     def add_segment(self, sgid, segment_bytes):

@@ -146,6 +146,7 @@ class UVSCryptHelper(object):
         fernet_key_bytes = kdf_output_key[uvsfp_key_len: uvsfp_key_len + fernet_key_len]
         fernet_key_b64 = base64.urlsafe_b64encode(fernet_key_bytes)
 
+        log.hazard('user pass: \n' + str(usr_pass))
         log.hazard('uvs fp key in hex: \n' + str(self.uvsfp_key_bytes.encode('hex')))
         log.hazard('fernet key in hex: \n' + str(fernet_key_bytes.encode('hex')))
         log.hazard('fernet key in b64: \n' + str(fernet_key_b64))
