@@ -554,7 +554,7 @@ class UVSManager(object):
 
 
 
-    def checkout_snapshot(self, snapid, clear_dest=False):
+    def checkout_snapshot(self, snapid, clear_dest=True):
         """ Given a valid snapshot id, set the content of working directory to the image of the repository
         at the time this snapshot id was taken.
 
@@ -571,9 +571,27 @@ class UVSManager(object):
         assert isinstance(snapid, str) or isinstance(snapid, unicode)
 
         if clear_dest:
-            # TODO
-            # delete dest with all its files. and mkdir again.
-            pass
+            dont_remove = set()
+            dont_remove.add(sdef._CACHE_FOLDER_NAME)
+            dont_remove.add(sdef._SHADOW_FOLDER_NAME)
+            dont_remove.add(sdef._SHADOW_DB_FILE_NAME)
+
+            root_contents = os.listdir(self._repo_root_path)
+            paths_to_remove = []
+
+            for root_content in root_contents:
+                if root_content not in dont_remove:
+                    paths_to_remove.append( os.path.join(self._repo_root_path, root_content) )
+
+            log.uvsmgr("clearing repo root for new checkout, removing: " + repr(paths_to_remove))
+
+            for path in paths_to_remove:
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                elif os.path.isfile(path):
+                    os.remove(path)
+
+
 
         if not os.path.isdir(self._repo_root_path):
             raise uvs_errors.UVSErrorInvalidDestinationDirectory("repo root dir does not exist or i cant write to.")
@@ -585,7 +603,7 @@ class UVSManager(object):
         snapshot_info_ct = self._dao.get_snapshot(snapid=snapid)
 
         if None == snapshot_info_ct:
-            raise UVSErrorInvalidSnapshot("DAO could not find such snapshot with the given snapid.")
+            raise UVSErrorInvalidSnapshot("Could not find that snapshot id.")
 
         snapshot_info_serial = self._crypt_helper.decrypt_bytes(ct=snapshot_info_ct)
 

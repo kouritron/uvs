@@ -41,6 +41,47 @@ def _init_new_repo():
     uvsmanager.init_new_uvs_repo_overwrite(repo_pass=user_pass, repo_root_path=cwd)
 
 
+def _checkout(cid):
+    """ checkout the snapshot with the given commit id (snapshot id) """
+
+    assert None != cid
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_checkout called. repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+    shadow_root_path = os.path.join(cwd, sdef._SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
+    except UVSErrorTamperDetected as e:
+        print e.message
+        sys.exit(1)
+
+    try:
+        uvsmgr.checkout_snapshot(snapid=cid, clear_dest=True)
+    except UVSError as e:
+        print e.message
+        sys.exit(1)
+
+
+
+
 def _commit(commit_msg):
     """ make a new snapshot of the repository. """
 
@@ -137,8 +178,11 @@ def _parse_cmdline():
 
     parser = argparse.ArgumentParser(description=desc_msg)
 
-    parser.add_argument("subcmd1", help="what should uvs do", choices=['init', 'log', 'commit', 'branch', 'merge'])
+    parser.add_argument("subcmd1", help="what should uvs do",
+                        choices=['init', 'log', 'commit', 'checkout', 'branch', 'merge'])
+
     parser.add_argument("-m", "--message", help="commit message")
+    parser.add_argument("-c", "--cid", help="commit id")
     args = parser.parse_args()
 
     # print type(args) returns  <class 'argparse.Namespace'>
@@ -161,6 +205,16 @@ def _parse_cmdline():
             sys.exit(2)
 
         _commit(commit_msg=msg)
+
+    elif 'checkout' == args.subcmd1:
+        log.cliv(">>>> checkout sub command called.")
+
+        cid = args.cid
+        if None == cid:
+            print "commit id (-c or --cid) is required."
+            sys.exit(2)
+
+        _checkout(cid=cid)
 
     elif 'branch' == args.subcmd1:
         print "Not Yet Implemented"
