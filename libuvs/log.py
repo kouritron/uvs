@@ -1,27 +1,37 @@
 
 
-_DISABLE_LOG_CLASS_HAZARD = False
-_DISABLE_LOG_CLASS_V = False
-_DISABLE_LOG_CLASS_VV = False
-_DISABLE_LOG_CLASS_VVV = False
-_DISABLE_LOG_CLASS_VVVV = True
-_DISABLE_LOG_CLASS_FEFR = False
-_DISABLE_LOG_CLASS_FEFRV = True
-_DISABLE_LOG_CLASS_FP = True
-_DISABLE_LOG_CLASS_DAO = False
-_DISABLE_LOG_CLASS_DAOV = True
+
+
+_DISABLE_ALL_LOGS = False
+
+
+##----------------------------------------------------------------------------------------------------------------------
+##----------------------------------------------------------------------------------------------------------------------
+##----------------------------------------------------------------------------------------------------------------------
+##----------------------------------------------------------------------------------------------------------------------
+
+_DISABLE_LOG_CLASS_HAZARD = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_V = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_VV = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_VVV = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_VVVV = _DISABLE_ALL_LOGS or True
+_DISABLE_LOG_CLASS_FEFR = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_FEFRV = _DISABLE_ALL_LOGS or True
+_DISABLE_LOG_CLASS_FP = _DISABLE_ALL_LOGS or True
+_DISABLE_LOG_CLASS_DAO = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_DAOV = _DISABLE_ALL_LOGS or True
 
 # CM and CMV are logs for crypt manager module.
-_DISABLE_LOG_CLASS_CM = True
-_DISABLE_LOG_CLASS_CMV = True
+_DISABLE_LOG_CLASS_CM = _DISABLE_ALL_LOGS or True
+_DISABLE_LOG_CLASS_CMV = _DISABLE_ALL_LOGS or True
 
 # CLI and CLIV are logs for command line UI
-_DISABLE_LOG_CLASS_CLI = False
-_DISABLE_LOG_CLASS_CLIV = True
+_DISABLE_LOG_CLASS_CLI = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_CLIV = _DISABLE_ALL_LOGS or True
 
 # UVSMGR and UVSMGRV are logs for command line UI
-_DISABLE_LOG_CLASS_UVSMGR = False
-_DISABLE_LOG_CLASS_UVSMGRV = True
+_DISABLE_LOG_CLASS_UVSMGR = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_UVSMGRV = _DISABLE_ALL_LOGS or True
 
 
 

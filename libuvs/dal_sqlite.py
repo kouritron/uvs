@@ -79,6 +79,10 @@ class DAO(object):
         public_record BLOB PRIMARY KEY NOT NULL,
         public_record_mac TEXT NOT NULL ); """ )
 
+        cursor.execute("""CREATE TABLE IF NOT EXISTS repo_history (
+        history_json BLOB PRIMARY KEY NOT NULL ); """ )
+
+
         # close the transaction
         self._connection.commit()
 
@@ -128,7 +132,7 @@ class DAO(object):
         self._connection.commit()
 
 
-        # fetchone returns a tuple of buffers, (in this case just one buffer)
+        # fetchone returns a tuple of buffers for the blob col and text for the text col
         query_result = cursor.fetchone()
 
         if None == query_result:
@@ -144,6 +148,64 @@ class DAO(object):
         log.dao("public record mac tag: " + str(pub_rec_mac_tag))
 
         return  public_record, pub_rec_mac_tag
+
+
+
+    def set_repo_history_doc(self, history_doc):
+        """ Every repository has exactly one record called history record (or history document)
+        This method sets that record to the supplied argument, overwriting a previous existing one, if needed.
+        """
+
+        log.dao("set_repo_history_doc() called on Sqlite DAO.")
+
+        assert None != history_doc
+        assert isinstance(history_doc, str) or isinstance(history_doc, bytes)
+
+
+        cursor = self._connection.cursor()
+
+        # there can only be one public doc.
+        cursor.execute(""" DELETE FROM repo_history; """)
+
+        # sqlite blobs require buffer objects
+        cursor.execute(""" INSERT INTO repo_history(history_json) VALUES (?);""",
+                       (buffer(history_doc), ) )
+
+        # Done public record is set
+        self._connection.commit()
+
+
+    def get_repo_history_doc(self):
+        """ Every repository has exactly one record called history record (or history document)
+        Retrieve and return that document.
+        """
+
+        log.dao("get_repo_history_doc() called on Sqlite DAO.")
+
+        cursor = self._connection.cursor()
+
+        # get the data back
+        cursor.execute(""" SELECT * FROM repo_history; """)
+
+        # close the transaction
+        self._connection.commit()
+
+
+        # fetchone returns a tuple of buffers for the blob col and text for the text col
+        query_result = cursor.fetchone()
+
+        if None == query_result:
+            log.dao("Sqlite DAO Could not find an existing history record.")
+            return None
+
+        log.daov("query_result: " + repr(query_result))
+
+        history_record = bytes(query_result[0])
+        log.dao("history record buffer, cast to bytes: " + str(history_record))
+
+
+        return  history_record
+
 
 
     def add_segment(self, sgid, segment_bytes):
@@ -382,6 +444,29 @@ class DAO(object):
 
         return first_row
 
+    def get_all_snapshots(self):
+        """ Find and return all snapshots a list of (snapid, snapinfo ciphertext)
+        returns empty list if no snapshots were found
+        """
+
+        log.dao("get_all_snapshots() called on Sqlite DAO.")
+
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT snapid, snapinfo_json FROM snapshots;")
+
+        # close the transaction
+        self._connection.commit()
+
+        # fetchone returns a tuple of tuples
+        query_result = cursor.fetchall()
+
+        log.daov("query result: " + repr(query_result))
+
+        # i should get empty list [] if no records found.
+        assert None != query_result, "Hmmm querying all snapshots returned None, this should not have happened."
+
+        return query_result
 
 
 #

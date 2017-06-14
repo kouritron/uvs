@@ -21,7 +21,7 @@
 
 _INSECURE_RAND_SALT = True
 
-_NOT_SO_RAND_SNAPSHOT_ID = True
+_NOT_SO_RAND_SNAPSHOT_ID = False
 
 _SKIP_ENCRYPTION = True
 
@@ -135,7 +135,7 @@ class KDFAlgo(object):
 
 
 ## change this global to use a different hash.
-_REPO_HASH_CHOICE = HashAlgo.SHA224
+_REPO_HASH_CHOICE = HashAlgo.SHA384
 
 ## change this global to use a diff kdf.
 _REPO_KDF_CHOICE = KDFAlgo.PBKDF2_WITH_SHA256

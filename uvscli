@@ -12,6 +12,10 @@ from libuvs import systemdefaults as sdef
 from libuvs import _version
 from libuvs.uvs_errors import *
 
+
+_REPO_PASS_PROMPT = ">> Passphrase: "
+
+
 def _init_new_repo():
     """ Initialize a new repository right here in cwd. """
 
@@ -31,7 +35,7 @@ def _init_new_repo():
 
 
     # now ask the user for the passphrase
-    user_pass = getpass.getpass(prompt="Passphrase: ")
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
 
 
     uvsmanager.init_new_uvs_repo_overwrite(repo_pass=user_pass, repo_root_path=cwd)
@@ -60,7 +64,7 @@ def _commit(commit_msg):
         sys.exit(1)
 
     # now ask the user for the passphrase
-    user_pass = getpass.getpass(prompt="Passphrase: ")
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
 
     uvsmgr = None
 
@@ -71,9 +75,58 @@ def _commit(commit_msg):
         sys.exit(1)
 
 
-    snapid = uvsmgr.take_snapshot(snapshot_msg=commit_msg, author_name="TODO add name", author_email="TODO add email")
+    snapid = uvsmgr.take_snapshot(snapshot_msg=commit_msg, author_name="sample_name", author_email="sample_email")
 
     print "commit (snapshot) successfully created. commit id (snapid) is: " + str(snapid)
+
+def _log_commits():
+    """ Show a list of all commits in this repo. """
+
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_log_commits called. repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+
+    shadow_root_path = os.path.join(cwd, sdef._SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass , repo_root_path=cwd)
+    except UVSErrorTamperDetected as e:
+        print e.message
+        sys.exit(1)
+
+    # TODO handle the case where there might be 700k commits in the repo (show them 100 at a time or something)
+    # right just print everything.
+
+
+    # i am expecting a list of tuples like this;
+    # <snapid, commit msg, author name, author email>
+    all_snapshots = uvsmgr.list_all_snapshots()
+
+
+    print "uvs log: found these snapshots:"
+    for snapid, msg, name, email in all_snapshots:
+        print "commit id: " + str(snapid)
+        print "author name: " + str(name) + " email: " + str(email) + " commit msg: " + str(msg) + "\n\n"
+
+
+
 
 
 def _parse_cmdline():
@@ -84,7 +137,7 @@ def _parse_cmdline():
 
     parser = argparse.ArgumentParser(description=desc_msg)
 
-    parser.add_argument("subcmd1", help="what should uvs do", choices=['init', 'stage', 'commit', 'branch', 'merge'])
+    parser.add_argument("subcmd1", help="what should uvs do", choices=['init', 'log', 'commit', 'branch', 'merge'])
     parser.add_argument("-m", "--message", help="commit message")
     args = parser.parse_args()
 
@@ -95,8 +148,9 @@ def _parse_cmdline():
         log.cliv(">>>> init sub command called.")
         _init_new_repo()
 
-    elif 'stage' == args.subcmd1:
-        print "Not Yet Implemented"
+    elif 'log' == args.subcmd1:
+        log.cliv(">>>> log sub command called.")
+        _log_commits()
 
     elif 'commit' == args.subcmd1:
         log.cliv(">>>> commit sub command called.")

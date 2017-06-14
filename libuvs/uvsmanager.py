@@ -17,6 +17,33 @@ import dal_sqlite
 from  uvs_errors import *
 
 
+
+
+
+
+class HeadState(object):
+    """" Enumerate different states a head reference can be in. """
+
+
+    # UNINITIALIZED = 101
+    # DETACHED = 102
+    # ATTACHED = 103
+
+    # means repo is empty head has never pointed to anything.
+    UNINITIALIZED = "UNINITIALIZED"
+
+    # means head reference is to a snapshot id.
+    DETACHED = "DETACHED"
+
+    # means head reference is to a branch name, the branch name eventually references a snapshot id.
+    ATTACHED = "ATTACHED"
+
+
+
+
+
+
+
 def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     """ Initialize a new empty uvs repository. this function creates a new empty repo overwriting existing
     shadow files if any is present
@@ -61,7 +88,55 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
 
     crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt=public_document['salt'])
 
+    # TODO I dont feel good about using uvsfp call to compute a MAC for public record
+    # even tho we know uvsfp is a secure hmac, still i would like to call a method called compute hmac or something
+    # to get the MAC. uvsfp may not be hmac always. i think this problem is caused due to using fernet for encryption
+    # in the golang version of uvs hopefully i will take over and separate the encryption and mac and make them
+    # individually configurable
     public_doc_serialized_mac_tag = crypt_helper.get_uvsfp(public_doc_serialized)
+
+
+    # now make the history record
+    hist_doc = {}
+
+    # represent the commit (snapshot) history with adjacency list
+    # parents -> a dict of <str snapid> to <list of parent snapids of this snapshot (adj list or neibors list)>
+    hist_doc['parents'] = {}
+
+
+    # one of "snapid" or "branch_handle" must always be None, head is either attached
+    # in which case snapid should be none, to find the snapshot dereference the branch handle.
+    # or head is detached (not attached to any branch) in this case branch handle must be None, snapid
+    # is the detached commit id (snapshot id)
+
+    # hist_doc['head'] = {'state': HeadState.UNINITIALIZED, 'snapid': None, 'branch_handle': None}
+    # hist_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
+
+    hist_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
+
+    #assert (hist_doc['head']['snapid'] == None) or (hist_doc['head']['branch_handle'] == None)
+    #assert (hist_doc['head']['state'] != HeadState.ATTACHED) or (hist_doc['head']['branch_handle'] != None)
+
+    if hist_doc['head']['state'] == HeadState.ATTACHED:
+        assert hist_doc['head']['snapid'] == None
+        assert hist_doc['head']['branch_handle'] != None
+        pass
+
+    elif hist_doc['head']['state'] == HeadState.DETACHED:
+        assert hist_doc['head']['snapid'] != None
+        assert hist_doc['head']['branch_handle'] == None
+        pass
+
+
+    # i think we should separate branches and tags rather than treat them both as "refs" tags are fixed pointers
+    # branches move as new commits (snapshots) are created on them.
+    # branches is a dict from <str branch_name> to <str snapid of the latest snapshot of this branch>
+    hist_doc['branches'] = {'master': None}
+
+
+
+    hist_doc_serialized = json.dumps(hist_doc, ensure_ascii=False, sort_keys=True)
+    hist_doc_ct = crypt_helper.encrypt_bytes(hist_doc_serialized)
 
     temp_dao = dal_sqlite.DAO(shadow_db_file_path)
 
@@ -69,6 +144,8 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     temp_dao.create_empty_tables()
 
     temp_dao.set_repo_public_doc(public_doc=public_doc_serialized, public_doc_mac_tag=public_doc_serialized_mac_tag)
+    temp_dao.set_repo_history_doc(history_doc=hist_doc_ct)
+
 
 
 class UVSManager(object):
@@ -119,7 +196,7 @@ class UVSManager(object):
         mac_tag_recomputed = tmp_crypt_helper.get_uvsfp(pub_doc)
 
         if mac_tag_recomputed != pub_doc_mac_tag:
-            raise UVSErrorTamperDetected("Either the public record was tampered with or you supplied wrong password.")
+            raise UVSErrorTamperDetected("Either the repository was tampered with or you supplied wrong password.")
 
         self._crypt_helper = tmp_crypt_helper
         self._repo_root_path = repo_root_path
@@ -141,7 +218,8 @@ class UVSManager(object):
 
         curr_dir_filenames = [fname for fname in names if os.path.isfile(os.path.join(self._repo_root_path , fname))]
 
-        log.v(curr_dir_filenames)
+        log.uvsmgr("Taking snapshot of repo root: " + str(self._repo_root_path))
+        log.uvsmgr("Files to be included in this snapshot: " + repr(curr_dir_filenames) )
 
         tree_info = {}
         tree_info['tids'] = []  # add subtrees if this directory has sub directories
@@ -200,8 +278,11 @@ class UVSManager(object):
         snapshot_info_serial = json.dumps(snapshot_info, ensure_ascii=False, sort_keys=True)
         snapshot_info_ct = crypt_helper.encrypt_bytes(snapshot_info_serial)
 
-        log.vv('new snapshot id: ' + new_snapid + "\nnew snapshot json: " + snapshot_info_ct)
-        self._dao.add_snapshot(snapid=new_snapid, snapshot=snapshot_info_ct)
+        log.uvsmgr('new snapshot id: ' + new_snapid + "\nnew snapshot json(ct): " + snapshot_info_ct)
+        self._dao.add_snapshot(snapid=new_snapid, snapshot=snapshot_info_ct )
+
+        # TODO update repo history
+
 
         return new_snapid
 
@@ -209,6 +290,28 @@ class UVSManager(object):
 
 
 
+    def list_all_snapshots(self):
+        """ Compute and return a list of all snapshots. this is a list of tuples like this:
+         <snapid, commit msg, author name, author email>
+
+         """
+
+        snapshots = self._dao.get_all_snapshots()
+
+        result_snapshots = []
+
+        for snapid, snapinfo_json_ct in snapshots:
+
+            snapinfo_json_pt = self._crypt_helper.decrypt_bytes(ct=bytes(snapinfo_json_ct))
+
+            snapinfo_dict = json.loads(snapinfo_json_pt)
+
+            result_row = [snapid, snapinfo_dict['msg'], snapinfo_dict['author_name'], snapinfo_dict['author_email']]
+
+            log.uvsmgr("snapshot: " + str(result_row) )
+            result_snapshots.append(result_row)
+
+        return result_snapshots
 
 
 
