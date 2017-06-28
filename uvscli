@@ -44,7 +44,7 @@ def _init_new_repo():
 def _checkout(cid):
     """ checkout the snapshot with the given commit id (snapshot id) """
 
-    assert None != cid
+    assert cid is not None
 
     # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
     # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
@@ -85,7 +85,7 @@ def _checkout(cid):
 def _commit(commit_msg):
     """ make a new snapshot of the repository. """
 
-    assert None != commit_msg
+    assert commit_msg is not None
 
 
     # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
@@ -116,7 +116,7 @@ def _commit(commit_msg):
         sys.exit(1)
 
 
-    snapid = uvsmgr.take_snapshot(snapshot_msg=commit_msg, author_name="sample_name", author_email="sample_email")
+    snapid = uvsmgr.take_snapshot(snapshot_msg=commit_msg, author_name="n/a", author_email="n/a")
 
     print "commit (snapshot) successfully created. commit id (snapid) is: " + str(snapid)
 

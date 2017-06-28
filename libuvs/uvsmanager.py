@@ -147,7 +147,6 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     temp_dao.set_repo_history_doc(history_doc=hist_doc_ct)
 
 
-
 class UVSManager(object):
 
     def __init__(self, repo_pass, repo_root_path):
@@ -202,74 +201,246 @@ class UVSManager(object):
         self._repo_root_path = repo_root_path
 
 
-    def take_snapshot(self, snapshot_msg, author_name, author_email):
-        """ Take a snapshot image of this repository  right now and save the cipher text to uvs.shadow db file.
-        returns the snapshot id of the newly created snapshot. 
-        """
-        assert None != self._dao
-        assert None != self._crypt_helper
-        assert isinstance(snapshot_msg, str) or isinstance(snapshot_msg, bytes) or isinstance(snapshot_msg, unicode)
-        assert isinstance(author_name, str) or isinstance(author_name, bytes) or isinstance(author_name, unicode)
-        assert isinstance(author_email, str) or isinstance(author_email, bytes) or isinstance(author_email, unicode)
+    def _should_skip_directory_with_path(self, dirpath):
+        """ Return true if the directory whose path is given in the argument, should NOT be included in
+        version control. """
 
+        assert isinstance(dirpath, str) or isinstance(dirpath, unicode) or isinstance(dirpath, bytes)
+
+        ignore_dirnames = ('.uvs_shadow', '.uvs_cache')
+
+        for ignore_dirname in ignore_dirnames:
+            if ignore_dirname in dirpath:
+                log.uvsmgr("\n**** Skipping dirpath: " + str(dirpath))
+                return True
+
+        return False
+
+
+    def _get_subdirs_list_excluding_ignorables(self, subdir_name_list):
+        """ Given a list of subdir names, return a new list including every name in the argument list except those
+        that should be excluded from version control. """
+
+        assert isinstance(subdir_name_list, list)
+
+        result = []
+        ignore_dirnames = ('.uvs_shadow', '.uvs_cache')
+
+        for subdir_name in subdir_name_list:
+
+            should_skip = False
+
+            # with this code we would ignore a subdir called foo_.uvs_shadow_bar
+            # right now this is what we want. alternatively we could include these, but make sure change
+            # the other functions (such as _should_skip_directory_with_path to not skip those)
+            # we could change that to something that splits path names first and does an equality compare
+            # to any token of the split (but be careful with how unix/windows paths should be split)
+            for ignore_dirname in ignore_dirnames:
+                if ignore_dirname in subdir_name:
+                    should_skip = True
+
+            if not should_skip:
+                result.append(subdir_name)
+
+        return result
+
+
+    def _get_filename_list_excluding_ignorables(self, file_name_list):
+        """ Given a list of file names in some directory, return a new list including every name in the argument
+        list except those that should be excluded from version control. """
+
+        assert isinstance(file_name_list, list)
+
+        result = []
+        ignore_dirnames = ("",)
+        # TODO deal with files to be ignored
+
+        result = file_name_list
+
+        return result
+
+
+    def _save_file(self, file_path):
+        """ Given a path to a file store it in the dao, and return the file id (file fingerprint). .
+        """
+
+        curr_file_bytes = open(file_path, 'rb').read()
+        curr_file_fp = self._crypt_helper.get_uvsfp(curr_file_bytes)
+        curr_file_ct = self._crypt_helper.encrypt_bytes(curr_file_bytes)
+        self._dao.add_segment(sgid=curr_file_fp, segment_bytes=curr_file_ct)
+
+        finfo = {}
+        finfo['verify_fid'] = curr_file_fp
+        finfo['segments'] = []
+        finfo['segments'].append((curr_file_fp, 0))
+
+        finfo = json.dumps(finfo, ensure_ascii=False, sort_keys=True)
+
+        finfo_ct = self._crypt_helper.encrypt_bytes(message=finfo)
+
+        self._dao.add_file(fid=curr_file_fp, finfo=finfo_ct)
+
+        return curr_file_fp
+
+
+    def _make_and_save_tree(self, dirpath, subdir_name_list, file_name_list):
+        """ Make a tree object, save it in dao, and return the tid, for the supplied dirpath containing the
+        supplied files and subdirs.
+        files will be read from disk, subdirs must already have existing trees for them ready. """
+
+        assert isinstance(dirpath, str) or isinstance(dirpath, bytes) or isinstance(dirpath, unicode)
+        assert isinstance(subdir_name_list, list) or isinstance(subdir_name_list, tuple)
+        assert isinstance(file_name_list, list) or isinstance(file_name_list, tuple)
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+        assert self._curr_snapshot_prev_seen_tree_ids is not None
+
+
+        # make tree must visit directories and subdirs bottom up. meaning first the deepest subdir must be
+        # visited. once a all subdirs of a directory are visited its ok to visit that directory itself.
+        # this because the tid (the fingerprint of the tree) depends on the fingerprint of the subdir
+        # in order to deterministically identify previously seen trees. (i.e. 2 trees are different if they
+        # have subdirs that eventually differ)
+        for subdir_name in subdir_name_list:
+            subdir_path = os.path.join(dirpath, subdir_name)
+            assert self._curr_snapshot_prev_seen_tree_ids.has_key(subdir_path)
+            assert os.path.isdir(subdir_path)
+
+        # if we didnt fail the assertions, then we should have a tid for every subdir.
+        # Now check that the file names exist on disk.
+        for file_name in file_name_list:
+            assert os.path.isfile(os.path.join(dirpath, file_name))
+
+        if 0 == len(subdir_name_list):
+            log.uvsmgr("Found leave tree node with path: " + str(dirpath))
+        else:
+
+            # ok this directory has subdirs, we should have seen them b4 we can deal with this directory
+            log.uvsmgr("++ now dealing with directory with subdirs, this dir's path: " + str(dirpath))
+            log.uvsmgr("++ prev_seen_dirs: " + repr(self._curr_snapshot_prev_seen_tree_ids))
+            log.uvsmgr("++ subdir names: " + str(subdir_name_list))
+
+
+        # if this is a leave tree node. (dir with no subdirs) make a tree, encrypt and save it.
+        # also save the (path, tid) of the directory associated with this tree to a temp dict.
+        # if this tree node has subdirs we should have seen them before and made trees for them
+        # (find the tids using path as key) and that should be all we need to make trees for dirs with subdirs..
+
+        # now make the actual tree and store it in the dao.
+        # tree id is same as tree fingerprint.
+        tree_id = None
         crypt_helper = self._crypt_helper
 
-        names = os.listdir(self._repo_root_path )
-
-        curr_dir_filenames = [fname for fname in names if os.path.isfile(os.path.join(self._repo_root_path , fname))]
-
-        log.uvsmgr("Taking snapshot of repo root: " + str(self._repo_root_path))
-        log.uvsmgr("Files to be included in this snapshot: " + repr(curr_dir_filenames) )
-
         tree_info = {}
-        tree_info['tids'] = []  # add subtrees if this directory has sub directories
-        tree_info['fids'] = []  # add files if this directory has files in it.
 
-        for src_filename in curr_dir_filenames:
-            src_pathname = os.path.join(self._repo_root_path, src_filename)
+        # fids is a list of 2-tuples (file name, fid) the list has to be sorted to be deterministic
+        tree_info['fids'] = []
 
-            curr_file_bytes = open(src_pathname, 'rb').read()
-            curr_file_fp = crypt_helper.get_uvsfp(curr_file_bytes)
-            curr_file_ct = crypt_helper.encrypt_bytes(curr_file_bytes)
-            self._dao.add_segment(sgid=curr_file_fp, segment_bytes=curr_file_ct)
+        # tids is a list of 2-tuples (tree name, tid) the list has to be sorted to be deterministic
+        tree_info['tids'] = []
 
-            finfo = {}
-            finfo['verify_fid'] = curr_file_fp
-            finfo['segments'] = []
-            finfo['segments'].append((curr_file_fp, 0))
+        for file_name in file_name_list:
+            file_path = os.path.join(dirpath, file_name)
 
-            finfo = json.dumps(finfo, ensure_ascii=False, sort_keys=True)
-
-            finfo_ct = crypt_helper.encrypt_bytes(message=finfo)
-
-            self._dao.add_file(fid=curr_file_fp, finfo=finfo_ct)
-
-
+            # after this call the file should be saved in the repository, and we have its file id (or fingerprint)
+            file_fp = self._save_file(file_path=file_path)
 
             # fids is a list of 2-tuples (name, fid) the list has to be sorted
-            tree_info['fids'].append((src_filename, curr_file_fp))
+            tree_info['fids'].append((file_name, file_fp))
+
+
+        # tree name will be the subdir name not the subdir path.
+        for tree_name in subdir_name_list:
+            tid = self._curr_snapshot_prev_seen_tree_ids[ os.path.join(dirpath, tree_name) ]
+            tree_info['tids'].append((tree_name, tid))
+
 
         # it doesnt matter much what order things get sorted in, as long as it is deterministic.
         # this says sort by elem[0] first and in case of ties sort by elem[1], i think just sort woulda done the same.
         tree_info['fids'].sort(key=lambda elem: (elem[0], elem[1]))
         # tree1_info['fids'].sort()
 
+        # sort the sub trees, again make sure it is deterministic.
+        # (that is a given version of uvs always does it, in the same order.)
+        tree_info['tids'].sort(key=lambda elem: (elem[0], elem[1]))
+
         tree_info_serial = json.dumps(tree_info, ensure_ascii=False, sort_keys=True)
 
         # get the fingerprint and ciphertext
-        tree_info_fp = crypt_helper.get_uvsfp(tree_info_serial)
+        tree_id = crypt_helper.get_uvsfp(tree_info_serial)
         tree_info_ct = crypt_helper.encrypt_bytes(tree_info_serial)
 
-        log.uvsmgrv('tree fp: ' + tree_info_fp + "\ntree info json: " + tree_info_serial)
+        log.uvsmgrv('tree fp: ' + tree_id + "\ntree info json: " + tree_info_serial)
 
-        self._dao.add_tree(tid=tree_info_fp, tree_info=tree_info_ct)
+        self._dao.add_tree(tid=tree_id, tree_info=tree_info_ct)
+
+        self._curr_snapshot_prev_seen_tree_ids[dirpath] = tree_id
+
+        return tree_id
+
+
+
+
+
+    def take_snapshot(self, snapshot_msg, author_name, author_email):
+        """ Take a snapshot image of this repository  right now and save the cipher text to uvs.shadow db file.
+        returns the snapshot id of the newly created snapshot. 
+        """
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+        assert isinstance(snapshot_msg, str) or isinstance(snapshot_msg, bytes) or isinstance(snapshot_msg, unicode)
+        assert isinstance(author_name, str) or isinstance(author_name, bytes) or isinstance(author_name, unicode)
+        assert isinstance(author_email, str) or isinstance(author_email, bytes) or isinstance(author_email, unicode)
+
+        log.uvsmgr("Taking snapshot of repo root: " + str(self._repo_root_path))
+
+        crypt_helper = self._crypt_helper
+
+        # dict of pathname to tid
+        # i.e. ./tests/test_suite1/    -->>  tid0001
+        self._curr_snapshot_prev_seen_tree_ids = {}
+
+        # walk everything in this path
+        # . means simply cwd. this could be abs path or relative path to cwd
+        walk_root = self._repo_root_path
+        walk_root_tid = None
+
+        for dirpath, unfiltered_subdir_name_list, unfiltered_file_name_list in os.walk(top=walk_root, topdown=False):
+
+            if self._should_skip_directory_with_path(dirpath):
+                continue
+
+            tree_name = os.path.basename(dirpath)
+
+            # get list of subdirs under version control
+            vc_subdir_name_list = self._get_subdirs_list_excluding_ignorables(unfiltered_subdir_name_list)
+            vc_file_name_list = self._get_filename_list_excluding_ignorables(unfiltered_file_name_list)
+
+            log.uvsmgr('---------------------------------------------------------------------------------')
+            log.uvsmgr(">>>> creating new tree with name: >>" + tree_name + "<< for dirpath: " + str(dirpath))
+            log.uvsmgr(">> subtree names: " + str(vc_subdir_name_list))
+            log.uvsmgr(">> filenames in this tree: " + str(vc_file_name_list) )
+            log.uvsmgrv("unfiltered_subdir_name_list: " + str(unfiltered_subdir_name_list))
+            log.uvsmgrv("unfiltered_file_name_list: " + str(unfiltered_file_name_list))
+
+            # the last iterations' write of this variable will survive the loop.
+            # the last iterations should return the tid of the walk root
+            walk_root_tid = self._make_and_save_tree(dirpath=dirpath, subdir_name_list=vc_subdir_name_list,
+                                  file_name_list=vc_file_name_list)
+
+
+
+            assert walk_root_tid is not None
+
+
 
         # give a random id to the new snapshot.
         new_snapid = rand_util.get_new_random_snapshot_id()
 
         snapshot_info = {}
         snapshot_info['verify_snapid'] = new_snapid
-        snapshot_info['root'] = tree_info_fp
+        snapshot_info['root'] = walk_root_tid
         snapshot_info['msg'] = snapshot_msg
         snapshot_info['author_name'] = author_name
         snapshot_info['author_email'] = author_email
@@ -283,6 +454,8 @@ class UVSManager(object):
 
         # TODO update repo history
 
+        # drop temp data structures for this snapshot
+        self._curr_snapshot_prev_seen_tree_ids = None
 
         return new_snapid
 
@@ -318,8 +491,8 @@ class UVSManager(object):
     def make_sample_snapshot_1(self):
         """ Create a test snapshot (commit in other vcs) """
 
-        assert None != self._dao
-        assert None != self._crypt_helper
+        assert self._dao is not None
+        assert self._crypt_helper is not None
 
         crypt_help = self._crypt_helper
 
@@ -465,9 +638,9 @@ class UVSManager(object):
         the key is derived from this repo's key.
         """
 
-        assert None != fname
-        assert None != fid
-        assert None != dest_dir_path
+        assert fname is not None
+        assert fid is not None
+        assert dest_dir_path is not None
         assert isinstance(fname, str) or isinstance(fname, bytes) or isinstance(fname, unicode)
 
         log.uvsmgr("checking out file. fname: " + str(fname) + " dst path: " + str(dest_dir_path) + " fid: " + str(fid))
@@ -550,6 +723,8 @@ class UVSManager(object):
             log.uvsmgrv("fname: " + str(fname) +  " fid: " + str(fid))
             self._checkout_file(fname=fname, fid=fid, dest_dir_path=dest_dir_path)
 
+        # TODO for every tree call itself.
+        # mkdir for tree name. add it to dest path and checkout the tid into it.
 
 
 
