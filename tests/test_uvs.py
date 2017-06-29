@@ -16,12 +16,14 @@ import unittest
 import subprocess
 
 import testutils as tu
+import libuvs.systemdefaults as sdef
+from libuvs import uvsmanager
 
 
 
 
 
-class TestRedFileCli(unittest.TestCase):
+class TestUVS(unittest.TestCase):
 
 
 
@@ -29,34 +31,117 @@ class TestRedFileCli(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        super(TestRedFileCli, cls).setUpClass()
+        super(TestUVS, cls).setUpClass()
         print "---------------------- setUpClass() called"
 
-        # make directory with random names and random subdirs and random files.
-        cls.test_tree = {}
+        cwd = os.getcwd()
+        print "cwd is: " + cwd
 
+        cls.repo_root_cksums_file = "md5sums_tst_repo"
+        cls.repo_root_path = './ignoreme'
+        # if 'tests' in cwd:
+        #     cls.repo_root_path = '../ignoreme'
+
+        print "creating test uvs repo at: " + cls.repo_root_path
+
+        shutil.rmtree(cls.repo_root_path)
+
+        # make and populate the repo root ith some random dirs and files to
+        # be treated as a test uvs repository.
+        tu.populate_folder_with_random_content(dirpath=cls.repo_root_path)
+
+        # make and populate some subdirs.
+        for i in range(0, 5):
+            subdir_path = os.path.join(cls.repo_root_path, tu.get_random_filename())
+            tu.populate_folder_with_random_content(dirpath=subdir_path)
+
+            for i in range(0, 3):
+                subdir_subdir_path = os.path.join(subdir_path, tu.get_random_filename())
+                tu.populate_folder_with_random_content(dirpath=subdir_subdir_path)
+
+
+        # now save md5 of what we created.
+        cmd = "find " + cls.repo_root_path
+        cmd += " -type f -print0 | xargs -0 md5sum > " + cls.repo_root_cksums_file
+        subprocess.call(cmd, shell=True)
 
     @classmethod
     def tearDownClass(cls):
-        super(TestRedFileCli, cls).tearDownClass()
+        super(TestUVS, cls).tearDownClass()
         print "---------------------- tearDownClass() called"
 
         # use shutil to delete the test trees.
+        repo_root_members = []
+        #repo_root_members = os.listdir(cls.repo_root_path)
+
+        for path in repo_root_members:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            elif os.path.isfile(path):
+                os.remove(path)
 
 
-    # setUp will run once before every testcase
+    # setUp will run once before every test case
     def setUp(self):
         pass
 
-    # tearDown will run once after every testcase
+
+    # tearDown will run once after every test case
     def tearDown(self):
         pass
 
 
-
-    def test_init_then_make_one_commit(self):
+    def test_1(self):
 
         pass
+
+
+    def test_init_then_make_one_commit_then_recover(self):
+
+        test_pass = "123"
+        # ---------------- init uvs repo on   self.repo_root_path
+        uvsmanager.init_new_uvs_repo_overwrite(repo_pass=test_pass, repo_root_path=self.repo_root_path)
+
+        # ---------------- make a commit
+        uvsmgr = uvsmanager.UVSManager(repo_pass=test_pass, repo_root_path=self.repo_root_path)
+        snapid = uvsmgr.take_snapshot(snapshot_msg='test commit', author_name="n/a", author_email="n/a")
+
+
+        # ---------------- delete everything at repo_root_path.
+        repo_root_members = os.listdir(self.repo_root_path)
+
+        paths_to_remove = []
+
+        dont_remove = set()
+        dont_remove.add(sdef._CACHE_FOLDER_NAME)
+        dont_remove.add(sdef._SHADOW_FOLDER_NAME)
+        dont_remove.add(sdef._SHADOW_DB_FILE_NAME)
+
+        for repo_root_member in repo_root_members:
+            if repo_root_member not in dont_remove:
+                paths_to_remove.append(os.path.join(self.repo_root_path, repo_root_member))
+
+        for path in paths_to_remove:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            elif os.path.isfile(path):
+                os.remove(path)
+
+
+
+        # ---------------- now checkout last commit
+        uvsmgr.checkout_snapshot(snapid=snapid, clear_dest=True)
+
+
+        # ---------------- now check to see if we recovered correctly.
+        check_cmd = "md5sum -c " + self.repo_root_cksums_file
+
+        # if exit code is non-zero (md5 failed) check output should raise error.
+        # subprocess.check_output(check_cmd,  shell=True)
+
+        # call will return the exit code.
+        check_cmd_exit_code = subprocess.call(check_cmd,  shell=True)
+        self.assertEquals(check_cmd_exit_code, 0)
 
 
 

@@ -1,6 +1,10 @@
 
 import hashlib
 import os
+import random
+
+# this should run once when testutils is imported by other test cases.
+random.seed(0)
 
 
 def get_file_hash(filename):
@@ -62,3 +66,85 @@ def find_file_within_this_project(filename):
             break
 
     return result
+
+
+_RAND_NAME_SIZE = 12
+_FILE_SIZE_MIN = 20
+_FILE_SIZE_MAX = 800
+
+_NUM_FILES_MIN = 2
+_NUM_FILES_MAX = 9
+
+def get_random_filename():
+    """ Return a random name that can be used as a file or directory name. """
+
+    return "tst_" +  os.urandom(_RAND_NAME_SIZE).encode('hex')
+
+
+def make_random_repo():
+    """
+
+    """
+
+    # For testing lets represent a repo like this:
+    # a dict to represent the root.
+    # inside the dict you will find str keys and either str or dict values.
+    # the str key is the name of the member. if value is a string, its a file and the content of
+    # the file are the content of the str.
+    # if value is a dict, its a directory with dir name being the key,
+
+    repo_root = make_random_dir()
+
+    # now add some more subdirs.
+
+    # this returns a random integer N such that a <= N <= b.
+    num_subdirs = random.randint(a=1, b=5)
+
+    for i in range(0, num_subdirs):
+
+        # come up with a random subdir name.
+        subdir_name = get_random_filename()
+        repo_root[subdir_name] = make_random_dir()
+
+    return repo_root
+
+
+
+def make_random_dir():
+    """
+    """
+
+    # result is a dict of file names to file content
+    result_dir = {}
+
+    # this returns a random integer N such that a <= N <= b.
+    num_files = random.randint(a=_NUM_FILES_MIN, b=_NUM_FILES_MAX)
+
+    for i in range(0, num_files):
+
+        # come up with a random file name.
+        file_name = get_random_filename()
+
+        # file content should be at least this size:
+
+        rand_size = random.randint(a=_FILE_SIZE_MIN, b=_FILE_SIZE_MAX)
+
+        file_content = os.urandom(rand_size).encode('hex').replace('9', '\n')
+        result_dir[file_name] = file_content
+
+
+    return result_dir
+
+
+def populate_folder_with_random_content(dirpath):
+    """ """
+
+
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+
+    for fname, fcontent in make_random_dir().items():
+        fpath = os.path.join(dirpath, fname)
+
+        with open(fpath, 'wb') as fhandle:
+            fhandle.write(fcontent)
