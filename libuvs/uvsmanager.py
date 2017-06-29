@@ -224,6 +224,7 @@ class UVSManager(object):
         assert isinstance(subdir_name_list, list)
 
         result = []
+        # TODO remove the hard codes, use constants
         ignore_dirnames = ('.uvs_shadow', '.uvs_cache')
 
         for subdir_name in subdir_name_list:
@@ -378,8 +379,6 @@ class UVSManager(object):
         self._curr_snapshot_prev_seen_tree_ids[dirpath] = tree_id
 
         return tree_id
-
-
 
 
 
@@ -699,19 +698,18 @@ class UVSManager(object):
 
 
     def _recursively_checkout_tree(self, tid, dest_dir_path):
-        """ Given a tree id, and dest directory, this method will checkout the files of this tree node 
+        """ Given a tree id, and dest directory, this method will checkout the contents of this tree node
         into destination directory, and recursively call itself for any sub trees that might exist. """
 
 
         tree_info_ct = self._dao.get_tree(tid)
 
-        log.uvsmgrv("tree info cipher text: " + str(tree_info_ct))
-
         if None == tree_info_ct:
-            raise UVSErrorInvalidTree("No such tree found for the given tid.")
+            raise UVSErrorInvalidTree("Cant find the tree to check out. Data structures must be corrupted.")
 
         tree_info_serial = self._crypt_helper.decrypt_bytes(ct=tree_info_ct)
 
+        log.uvsmgrv("tree info cipher text: " + str(tree_info_ct))
         log.uvsmgr("tree info decrypted: " + str(tree_info_serial))
 
         tree_info = json.loads(tree_info_serial)
@@ -723,8 +721,15 @@ class UVSManager(object):
             log.uvsmgrv("fname: " + str(fname) +  " fid: " + str(fid))
             self._checkout_file(fname=fname, fid=fid, dest_dir_path=dest_dir_path)
 
-        # TODO for every tree call itself.
-        # mkdir for tree name. add it to dest path and checkout the tid into it.
+        for tree_name, tree_id in tree_info['tids']:
+
+            log.uvsmgrv("tree_name: " + str(tree_name) +  " tree_id: " + str(tree_id))
+
+            # mkdir for tree name. add it to dest path and checkout the tid into it.
+            new_tree_path = os.path.join(dest_dir_path, tree_name)
+            os.mkdir(new_tree_path)
+            self._recursively_checkout_tree(tid=tree_id, dest_dir_path=new_tree_path)
+
 
 
 
@@ -745,31 +750,38 @@ class UVSManager(object):
         # on windows path names are usually unicode, this might cause problems, be careful.
         assert isinstance(snapid, str) or isinstance(snapid, unicode)
 
+        if not os.path.isdir(self._repo_root_path):
+            raise uvs_errors.UVSErrorInvalidDestinationDirectory("repo root dir does not exist or i cant write to.")
+
+        # TODO: i think we should not remove files that are not version controlled.
+        # study git's behavior on this.
         if clear_dest:
+
+            repo_root_members = os.listdir(self._repo_root_path)
+            log.uvsmgr("clearing repo root, repo root members: " + repr(repo_root_members))
+
+            actual_paths_to_remove = []
+
             dont_remove = set()
             dont_remove.add(sdef._CACHE_FOLDER_NAME)
             dont_remove.add(sdef._SHADOW_FOLDER_NAME)
             dont_remove.add(sdef._SHADOW_DB_FILE_NAME)
 
-            root_contents = os.listdir(self._repo_root_path)
-            paths_to_remove = []
+            for repo_root_member in repo_root_members:
+                if repo_root_member not in dont_remove:
+                    actual_paths_to_remove.append( os.path.join(self._repo_root_path, repo_root_member) )
 
-            for root_content in root_contents:
-                if root_content not in dont_remove:
-                    paths_to_remove.append( os.path.join(self._repo_root_path, root_content) )
 
-            log.uvsmgr("clearing repo root for new checkout, removing: " + repr(paths_to_remove))
+            log.uvsmgr("clearing repo root for new checkout, removing: " + repr(actual_paths_to_remove))
 
-            for path in paths_to_remove:
+            for path in actual_paths_to_remove:
                 if os.path.isdir(path):
+                    # TODO: perhaps write a manual directory remover that uses os.walk to traverse and
+                    # delete a directory similar to rmtree, but skip if we found uvs_shadow down the tree.
                     shutil.rmtree(path)
                 elif os.path.isfile(path):
                     os.remove(path)
 
-
-
-        if not os.path.isdir(self._repo_root_path):
-            raise uvs_errors.UVSErrorInvalidDestinationDirectory("repo root dir does not exist or i cant write to.")
 
         # To checkout, get the snapshot, find the root tree id. (raise error if decryption fails, or mac failed.)
         # checkout tree recursive function:
