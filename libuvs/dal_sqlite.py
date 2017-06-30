@@ -12,7 +12,7 @@ class DAO(object):
     def __init__(self, db_file_path):
         super(DAO, self).__init__()
 
-        assert None != db_file_path
+        assert db_file_path is not None
         assert isinstance(db_file_path, str) or isinstance(db_file_path, unicode) or isinstance(db_file_path, bytes)
         assert not os.path.isdir(db_file_path)
 
@@ -98,8 +98,8 @@ class DAO(object):
 
         log.dao("set_repo_public_doc() called on Sqlite DAO.")
 
-        assert None != public_doc
-        assert None != public_doc_mac_tag
+        assert public_doc is not None
+        assert public_doc_mac_tag is not None
         assert isinstance(public_doc, str) or isinstance(public_doc, bytes)
         assert isinstance(public_doc_mac_tag, str) or isinstance(public_doc_mac_tag, bytes)
 
@@ -158,7 +158,7 @@ class DAO(object):
 
         log.dao("set_repo_history_doc() called on Sqlite DAO.")
 
-        assert None != history_doc
+        assert history_doc is not None
         assert isinstance(history_doc, str) or isinstance(history_doc, bytes)
 
 
@@ -240,7 +240,7 @@ class DAO(object):
 
         log.dao("get_segment() called on Sqlite DAO. sgid: " + str(sgid))
 
-        assert None != sgid
+        assert sgid is not None
         assert isinstance(sgid, str) or isinstance(sgid, bytes) or isinstance(sgid, unicode), \
             "tid is not str/bytes/unicode, type(tid): " + str(type(sgid))
 
@@ -278,8 +278,8 @@ class DAO(object):
 
         log.dao("add_file() called on Sqlite DAO. fid: " + str(fid) + " finfo: " + str(finfo))
 
-        assert None != fid
-        assert None != finfo
+        assert fid is not None
+        assert finfo is not None
         assert isinstance(fid, str) or isinstance(fid, bytes)
         assert isinstance(finfo, str) or isinstance(finfo, bytes)
 
@@ -298,7 +298,7 @@ class DAO(object):
 
         log.dao("get_file() called on Sqlite DAO. tid: " + str(fid))
 
-        assert None != fid
+        assert fid is not None
         assert isinstance(fid, str) or isinstance(fid, bytes) or isinstance(fid, unicode), \
             "tid is not str/bytes/unicode, type(tid): " + str(type(fid))
 
@@ -336,9 +336,9 @@ class DAO(object):
 
         log.dao("add_tree() called on Sqlite DAO. tid: " + str(tid) + " tree_info: " + str(tree_info))
 
-        assert None != tree_info
+        assert tree_info is not None
         assert isinstance(tree_info, str) or isinstance(tree_info, bytes)
-        assert None != tid
+        assert tid is not None
         assert isinstance(tid, str) or isinstance(tid, bytes)
 
         cursor = self._connection.cursor()
@@ -356,7 +356,7 @@ class DAO(object):
 
         log.dao("get_tree() called on Sqlite DAO. tid: " + str(tid))
 
-        assert None != tid
+        assert tid is not None
         assert isinstance(tid, str) or isinstance(tid, bytes) or isinstance(tid, unicode), \
             "tid is not str/bytes/unicode, type(tid): " + str(type(tid))
 
@@ -397,8 +397,8 @@ class DAO(object):
 
         log.dao("add_snapshot() called on Sqlite DAO. snapid: " + str(snapid) + " snapshot: " + str(snapshot))
 
-        assert None != snapid
-        assert None != snapshot
+        assert snapid is not None
+        assert snapshot is not None
         assert isinstance(snapid, str) or isinstance(snapid, bytes)
         assert isinstance(snapshot, str) or isinstance(snapshot, bytes)
 
@@ -420,7 +420,7 @@ class DAO(object):
 
         log.dao("get_snapshot() called on Sqlite DAO. snapid: " + str(snapid))
 
-        assert None != snapid
+        assert snapid is not None
         assert isinstance(snapid, str) or isinstance(snapid, bytes)
 
         cursor = self._connection.cursor()
@@ -464,7 +464,7 @@ class DAO(object):
         log.daov("query result: " + repr(query_result))
 
         # i should get empty list [] if no records found.
-        assert None != query_result, "Hmmm querying all snapshots returned None, this should not have happened."
+        assert query_result is not None, "Hmmm querying all snapshots returned None, this should not have happened."
 
         return query_result
 

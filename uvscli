@@ -9,7 +9,7 @@ import getpass
 from libuvs import log
 from libuvs import uvsmanager
 from libuvs import systemdefaults as sdef
-from libuvs import _version
+from libuvs import version
 from libuvs.uvs_errors import *
 
 
@@ -21,16 +21,16 @@ def _init_new_repo():
 
     cwd = os.getcwd()
 
-    log.cli("_init_new_repo() called, repo root: " + cwd )
+    log.cli("_init_new_repo() called, repo root: " + cwd)
 
-    shadow_root_path = os.path.join(cwd, sdef._SHADOW_FOLDER_NAME)
-    shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
 
     if os.path.isfile(shadow_db_file_path):
         print "This directory (" + cwd + ") appears to be a uvs repository already."
         print "Cancelling init to keep this repository."
         print "If you really want to re-init an empty repository here, delete uvs internal folders first."
-        print "These should be called: " + sdef._SHADOW_FOLDER_NAME + ", " + sdef._CACHE_FOLDER_NAME
+        print "These should be called: " + sdef.SHADOW_FOLDER_NAME + ", " + sdef.CACHE_FOLDER_NAME
         sys.exit(1)
 
 
@@ -54,8 +54,8 @@ def _checkout(cid):
     log.cli("_checkout called. repo root: " + cwd)
 
     # if this is a uvs repo uvs db files are here.
-    shadow_root_path = os.path.join(cwd, sdef._SHADOW_FOLDER_NAME)
-    shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
 
     if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
         print "current working directory does not appear to be a uvs repository."
@@ -97,8 +97,8 @@ def _commit(commit_msg):
 
     # if this is a uvs repo uvs db files are here.
 
-    shadow_root_path = os.path.join(cwd, sdef._SHADOW_FOLDER_NAME)
-    shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
 
     if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
         print "current working directory does not appear to be a uvs repository."
@@ -133,8 +133,8 @@ def _log_commits():
 
     # if this is a uvs repo uvs db files are here.
 
-    shadow_root_path = os.path.join(cwd, sdef._SHADOW_FOLDER_NAME)
-    shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
 
     if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
         print "current working directory does not appear to be a uvs repository."
@@ -174,7 +174,7 @@ def _parse_cmdline():
     """ Given command line arguments to the program are in the arguments list, parse and process them. """
 
 
-    desc_msg = 'UVSource - End to End Encrypted Distributed Version Control System -- ver: ' + _version.get_version()
+    desc_msg = 'UVSource - End to End Encrypted Distributed Version Control System -- ver: ' + version.get_version()
 
     parser = argparse.ArgumentParser(description=desc_msg)
 

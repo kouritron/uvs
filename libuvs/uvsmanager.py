@@ -10,7 +10,7 @@ import rand_util
 import log
 import cryptmanager as cm
 import systemdefaults as sdef
-import _version
+import version
 import uvs_errors
 import dal_psql
 import dal_sqlite
@@ -54,8 +54,8 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
 
     log.uvsmgrv("init_new_uvs_repo_overwrite() called, repo root:" + str(repo_root_path))
 
-    shadow_root_path = os.path.join(repo_root_path, sdef._SHADOW_FOLDER_NAME)
-    shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+    shadow_root_path = os.path.join(repo_root_path, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
 
     # delete the file, suppress "file not found" exception, re-raise all other exceptions
     try:
@@ -78,7 +78,7 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     public_document = {}
 
     public_document['salt'] = cm.get_new_random_salt()
-    public_document['uvs_version'] = _version.get_version()
+    public_document['uvs_version'] = version.get_version()
     public_document['fingerprinting_algo'] = cm.get_uvs_fingerprinting_algo_desc()
     public_document['encryption'] = cm.get_encryption_algo_desc()
 
@@ -164,8 +164,8 @@ class UVSManager(object):
         assert repo_root_path != None
         assert os.path.isdir(repo_root_path)
 
-        shadow_root_path = os.path.join(repo_root_path, sdef._SHADOW_FOLDER_NAME)
-        shadow_db_file_path = os.path.join(shadow_root_path, sdef._SHADOW_DB_FILE_NAME)
+        shadow_root_path = os.path.join(repo_root_path, sdef.SHADOW_FOLDER_NAME)
+        shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
 
         self._dao = dal_sqlite.DAO(shadow_db_file_path)
 
@@ -763,9 +763,9 @@ class UVSManager(object):
             actual_paths_to_remove = []
 
             dont_remove = set()
-            dont_remove.add(sdef._CACHE_FOLDER_NAME)
-            dont_remove.add(sdef._SHADOW_FOLDER_NAME)
-            dont_remove.add(sdef._SHADOW_DB_FILE_NAME)
+            dont_remove.add(sdef.CACHE_FOLDER_NAME)
+            dont_remove.add(sdef.SHADOW_FOLDER_NAME)
+            dont_remove.add(sdef.SHADOW_DB_FILE_NAME)
 
             for repo_root_member in repo_root_members:
                 if repo_root_member not in dont_remove:

@@ -113,9 +113,9 @@ class TestUVS(unittest.TestCase):
         paths_to_remove = []
 
         dont_remove = set()
-        dont_remove.add(sdef._CACHE_FOLDER_NAME)
-        dont_remove.add(sdef._SHADOW_FOLDER_NAME)
-        dont_remove.add(sdef._SHADOW_DB_FILE_NAME)
+        dont_remove.add(sdef.CACHE_FOLDER_NAME)
+        dont_remove.add(sdef.SHADOW_FOLDER_NAME)
+        dont_remove.add(sdef.SHADOW_DB_FILE_NAME)
 
         for repo_root_member in repo_root_members:
             if repo_root_member not in dont_remove:
@@ -140,7 +140,8 @@ class TestUVS(unittest.TestCase):
         # subprocess.check_output(check_cmd,  shell=True)
 
         # call will return the exit code.
-        check_cmd_exit_code = subprocess.call(check_cmd,  shell=True)
+        blackhole = open(os.devnull, 'wb')
+        check_cmd_exit_code = subprocess.call(check_cmd, stdout=blackhole, stderr=blackhole, shell=True)
         self.assertEquals(check_cmd_exit_code, 0)
 
 

@@ -19,35 +19,35 @@
 ## ATTENTION: if any of these insecure modes are enabled, the system is not secure.
 ## They can be set to assist with debug/devel.
 
-_INSECURE_RAND_SALT = True
+INSECURE_RAND_SALT = True
 
-_NOT_SO_RAND_SNAPSHOT_ID = False
+NOT_SO_RAND_SNAPSHOT_ID = False
 
-_SKIP_ENCRYPTION = True
+SKIP_ENCRYPTION = True
 
-if _SKIP_ENCRYPTION: print "\033[1;31m" + "\n**** Warning system is set to skip encryption ****\n" + "\033[0;0m"
+if SKIP_ENCRYPTION: print "\033[1;31m" + "\n**** Warning system is set to skip encryption ****\n" + "\033[0;0m"
 
 # this is where the ciphertext blobs live,  dont put any source files or anything else that needs protection in here.
 # Remember the goal is that this folder + secret passphrase is enough to recover the entire repo and its history
 # for a regular user to work with the edvcs, and this folder alone (w/- secret passphrase) reveals no information
 # about the source files in this repo or their history
-_SHADOW_FOLDER_NAME = '.uvs_shadow'
+SHADOW_FOLDER_NAME = '.uvs_shadow'
 
-_SHADOW_DB_FILE_NAME = 'uvs.db'
+SHADOW_DB_FILE_NAME = 'uvs.db'
 
 # this folder may contain information that helps the edvcs do its job and is not part of the source
 # but they are not in ciphertext and not to be ever pushed to the cloud.
 #
 # Ideally it should be lazily generated and regenerated if its deleted by the user ,
 # but we are in early alpha stage, so i cant guarantee that is how it will be used.
-_CACHE_FOLDER_NAME = '.uvs_cache'
+CACHE_FOLDER_NAME = '.uvs_cache'
 
 
 
 # this says if i am creating new segments for a new file, break it into segments of size default size
 # but if need you can make segments that are smaller than this or larger than this to handle deletions
 # and insertions. For more info look at the documentation on segments
-_SEGMENT_SIZE_DEFAULT = 4096
+SEGMENT_SIZE_DEFAULT = 4096
 
 
 # this says dont create segments of larger size than this. if necessary make two smaller chunks
@@ -57,12 +57,12 @@ _SEGMENT_SIZE_DEFAULT = 4096
 # safely encrypted with a fixed (key, IV) pair. now in fernet a single token (segment in our case)
 # will use a single Key, IV pair. so maybe that means that fernet tokens should not get too large.
 # at the moment segment size does protect us from unlimited fernet tokens sizes.
-_SEGMENT_SIZE_MAX = 8192
+SEGMENT_SIZE_MAX = 8192
 
 # in case pbkdf2 is used for key derivation, this specifies number of iterations
 # TODO reset this back to 1 million or higher. i am lowering it now for development
-#_PBKDF2_ITERATIONS = 1000 * 1000
-_PBKDF2_ITERATIONS = 60000
+#PBKDF2_ITERATIONS = 1000 * 1000
+PBKDF2_ITERATIONS = 60000
 #-----------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------
@@ -135,13 +135,13 @@ class KDFAlgo(object):
 
 
 ## change this global to use a different hash.
-_REPO_HASH_CHOICE = HashAlgo.SHA224
+REPO_HASH_CHOICE = HashAlgo.SHA224
 
 ## change this global to use a diff kdf.
-_REPO_KDF_CHOICE = KDFAlgo.PBKDF2_WITH_SHA256
+REPO_KDF_CHOICE = KDFAlgo.PBKDF2_WITH_SHA256
 
 ## change this global to use a different symmetric cipher.
-_REPO_ENCRYPTION_ALGO_CHOICE = EncryptionAlgo.FERNET_0x80
+REPO_ENCRYPTION_ALGO_CHOICE = EncryptionAlgo.FERNET_0x80
 
 
 def get_digest_size():
@@ -150,22 +150,22 @@ def get_digest_size():
      """
 
 
-    if _REPO_HASH_CHOICE == HashAlgo.SHA512:
+    if REPO_HASH_CHOICE == HashAlgo.SHA512:
         return 64
 
-    if _REPO_HASH_CHOICE == HashAlgo.SHA3_512:
+    if REPO_HASH_CHOICE == HashAlgo.SHA3_512:
         return 64
 
-    if _REPO_HASH_CHOICE == HashAlgo.SHA3_256:
+    if REPO_HASH_CHOICE == HashAlgo.SHA3_256:
         return 32
 
-    if _REPO_HASH_CHOICE == HashAlgo.SHA256:
+    if REPO_HASH_CHOICE == HashAlgo.SHA256:
         return 32
 
-    if _REPO_HASH_CHOICE == HashAlgo.SHA224:
+    if REPO_HASH_CHOICE == HashAlgo.SHA224:
         return 28
 
-    if _REPO_HASH_CHOICE == HashAlgo.SHA384:
+    if REPO_HASH_CHOICE == HashAlgo.SHA384:
         return 48
 
 

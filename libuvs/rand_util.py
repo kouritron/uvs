@@ -9,7 +9,7 @@ import hash_util
 import random as rand_src_debug_only
 
 # this is for debug mode only. it will run upon importing this module.
-if sdef._NOT_SO_RAND_SNAPSHOT_ID:
+if sdef.NOT_SO_RAND_SNAPSHOT_ID:
     rand_src_debug_only.seed(10)
 
 
@@ -21,7 +21,7 @@ def get_new_random_salt():
 
     size = 32
 
-    if sdef._INSECURE_RAND_SALT:
+    if sdef.INSECURE_RAND_SALT:
         # fixed salt for testing
         return '596381b4268e6811cbf9614c3fa0981515223600f49ab12fc2f783729399a31e'.decode('hex')
 
@@ -68,7 +68,7 @@ def get_new_random_snapshot_id():
      """
 
     # this is for debug mode only.
-    if sdef._NOT_SO_RAND_SNAPSHOT_ID:
+    if sdef.NOT_SO_RAND_SNAPSHOT_ID:
 
         log.vvvv("Random snapshot ids are seeded. This for debug only, don't use this in production.")
 

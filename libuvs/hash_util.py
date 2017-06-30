@@ -22,34 +22,34 @@ def get_digest_for_bytes(src_bytes):
 
     assert isinstance(src_bytes, str) or isinstance(src_bytes, bytes)
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
         hf = hashlib.sha512()
         hf.update(src_bytes)
 
         return hf.hexdigest()
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
         hf = hashlib.sha256()
         hf.update(src_bytes)
 
         return hf.hexdigest()
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
         hf = hashlib.sha224()
         hf.update(src_bytes)
 
         return hf.hexdigest()
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
         hf = hashlib.sha384()
         hf.update(src_bytes)
 
         return hf.hexdigest()
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_512:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_512:
         assert False, 'sha3 512 is not implemented yet.'
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_256:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_256:
             assert False, 'sha3 512 is not implemented yet.'
 
     assert False, 'unknown hash is in use for this repository.'

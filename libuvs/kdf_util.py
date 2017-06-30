@@ -43,11 +43,11 @@ def _make_kdf_for_current_mode(salt, key_len):
     assert isinstance(key_len, int)
     assert key_len > 0
 
-    if sdef._REPO_KDF_CHOICE == sdef.KDFAlgo.PBKDF2_WITH_SHA256:
+    if sdef.REPO_KDF_CHOICE == sdef.KDFAlgo.PBKDF2_WITH_SHA256:
         return _make_kdf_pbkdf2_sha256(salt=salt, key_len=key_len)
 
 
-    if sdef._REPO_KDF_CHOICE == sdef.KDFAlgo.PBKDF2_WITH_SHA512:
+    if sdef.REPO_KDF_CHOICE == sdef.KDFAlgo.PBKDF2_WITH_SHA512:
         return _make_kdf_pbkdf2_sha256(salt=salt, key_len=key_len)
 
 
@@ -67,7 +67,7 @@ def _make_kdf_pbkdf2_sha256(salt, key_len):
     backend = backends.default_backend()
     algorithm = hashes.SHA256()
 
-    kdf = PBKDF2HMAC(algorithm=algorithm, length=key_len, salt=salt, iterations=sdef._PBKDF2_ITERATIONS, backend=backend)
+    kdf = PBKDF2HMAC(algorithm=algorithm, length=key_len, salt=salt, iterations=sdef.PBKDF2_ITERATIONS, backend=backend)
     return kdf
 
 
@@ -84,7 +84,7 @@ def _make_kdf_pbkdf2_sha512(salt, key_len):
     backend = backends.default_backend()
     algorithm = hashes.SHA512()
 
-    kdf = PBKDF2HMAC(algorithm=algorithm, length=key_len, salt=salt, iterations=sdef._PBKDF2_ITERATIONS, backend=backend)
+    kdf = PBKDF2HMAC(algorithm=algorithm, length=key_len, salt=salt, iterations=sdef.PBKDF2_ITERATIONS, backend=backend)
     return kdf
 
 

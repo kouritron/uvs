@@ -18,19 +18,19 @@ def get_encryption_algo_desc():
 
     log.cmv("get_encryption_algo_desc() called. ")
 
-    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.FERNET_0x80:
+    if sdef.REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.FERNET_0x80:
         return "FERNET_0x80"
 
-    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.AES_256_HMAC_SHA256:
+    if sdef.REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.AES_256_HMAC_SHA256:
         return "AES_256_HMAC_SHA256"
 
-    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.AES_256_HMAC_SHA384:
+    if sdef.REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.AES_256_HMAC_SHA384:
         return "AES_256_HMAC_SHA384"
 
-    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.CAMELLIA_256_HMAC_SHA256:
+    if sdef.REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.CAMELLIA_256_HMAC_SHA256:
         return "CAMELLIA_256_HMAC_SHA256"
 
-    if sdef._REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.CAMELLIA_256_HMAC_SHA384:
+    if sdef.REPO_ENCRYPTION_ALGO_CHOICE == sdef.EncryptionAlgo.CAMELLIA_256_HMAC_SHA384:
         return "CAMELLIA_256_HMAC_SHA384"
 
 
@@ -41,22 +41,22 @@ def get_uvs_fingerprinting_algo_desc():
 
     log.cmv("get_uvs_fingerprinting_algo_desc() called. ")
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
         return  "SHA512_HMAC"
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
         return  "SHA256_HMAC"
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
         return  "SHA224_HMAC"
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
         return  "SHA384_HMAC"
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_256:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_256:
         return  "SHA3_256"
 
-    if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_512:
+    if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA3_512:
         return  "SHA3_512"
 
     raise NotImplementedError('unknown or un-implemented hash algo in use. ')
@@ -168,7 +168,7 @@ class UVSCryptHelper(object):
         assert isinstance(message, str) or isinstance(message, bytes)
 
         # this is just for debugging.
-        if sdef._SKIP_ENCRYPTION:
+        if sdef.SKIP_ENCRYPTION:
             return message
 
         fernet_token = self._fernet.encrypt(message)
@@ -190,7 +190,7 @@ class UVSCryptHelper(object):
         assert isinstance(ct, str) or isinstance(ct, bytes)
 
         # this is just for debugging.
-        if sdef._SKIP_ENCRYPTION:
+        if sdef.SKIP_ENCRYPTION:
             return ct
 
         original_message = self._fernet.decrypt(ct)
@@ -216,16 +216,16 @@ class UVSCryptHelper(object):
 
         hash_func = None
 
-        if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
+        if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA512:
             hash_func = hashes.SHA512()
 
-        if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
+        if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA256:
             hash_func = hashes.SHA256()
 
-        if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
+        if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA224:
             hash_func = hashes.SHA224()
 
-        if sdef._REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
+        if sdef.REPO_HASH_CHOICE == sdef.HashAlgo.SHA384:
             hash_func = hashes.SHA384()
 
 
