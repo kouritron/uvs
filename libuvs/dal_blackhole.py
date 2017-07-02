@@ -43,7 +43,7 @@ class DAO(object):
 
         log.dao("get_repo_public_doc() called on Blackhole DAO.")
 
-        return  None, None
+        return None, None
 
 
     def set_repo_history_doc(self, history_doc):
@@ -64,7 +64,7 @@ class DAO(object):
 
         log.dao("get_repo_history_doc() called on Blackhole DAO.")
 
-        return  None
+        return None
 
 
     def add_segment(self, sgid, segment_bytes):
@@ -77,9 +77,9 @@ class DAO(object):
 
         log.dao("add_segment() called on Blackhole DAO. sgid: " + str(sgid) + " segment_bytes: " + repr(segment_bytes))
 
-        assert sgid != None
+        assert sgid is not None
         assert isinstance(sgid, str) or isinstance(sgid, bytes)
-        assert segment_bytes != None
+        assert segment_bytes is not None
         assert isinstance(segment_bytes, str) or isinstance(segment_bytes, bytes)
 
 

@@ -48,39 +48,37 @@ class DAO(object):
         # cursor.execute(""" SELECT * FROM students WHERE gpa > ? """, (2.5, )  )
         cursor.execute("""CREATE TABLE IF NOT EXISTS snapshots (
         snapid TEXT PRIMARY KEY NOT NULL,
-        snapinfo_json BLOB NOT NULL ); """ )
-
+        snapinfo_json BLOB NOT NULL ); """)
 
         # Trees table, i dont believe table names are case sensitive.
         # tid is the uvs fp the tree contents
         # tree is json that describes whats in this tree.
         cursor.execute("""CREATE TABLE IF NOT EXISTS trees (
         tid TEXT PRIMARY KEY NOT NULL,
-        tree_json BLOB NOT NULL ); """ )
-
+        tree_json BLOB NOT NULL ); """)
 
         # fid is the uvs fp of the file content
         # finfo is json of information about this fid. Most important part is a list of segments that make up this file
         # dereference the segments table to find the contents of this file.
         cursor.execute("""CREATE TABLE IF NOT EXISTS files (
         fid TEXT PRIMARY KEY NOT NULL,
-        finfo_json BLOB NOT NULL ); """ )
+        finfo_json BLOB NOT NULL ); """)
 
 
         # sgid is the uvsfp of this segment
         cursor.execute("""CREATE TABLE IF NOT EXISTS segments (
         sgid TEXT PRIMARY KEY NOT NULL,
-        segment BLOB NOT NULL ); """ )
+        segment BLOB NOT NULL ); """)
 
 
         # every repo has single public record, this is just a json record with some public info about this repo
         # (like public name, salt, optional owner email if needed, ....)
         cursor.execute("""CREATE TABLE IF NOT EXISTS public (
         public_record BLOB PRIMARY KEY NOT NULL,
-        public_record_mac TEXT NOT NULL ); """ )
+        public_record_mac TEXT NOT NULL ); """)
 
         cursor.execute("""CREATE TABLE IF NOT EXISTS repo_history (
-        history_json BLOB PRIMARY KEY NOT NULL ); """ )
+        history_json BLOB PRIMARY KEY NOT NULL ); """)
 
 
         # close the transaction
@@ -111,7 +109,7 @@ class DAO(object):
 
         # sqlite blobs require buffer objects
         cursor.execute(""" INSERT INTO public(public_record, public_record_mac) VALUES (?, ?);""",
-                       (buffer(public_doc), public_doc_mac_tag) )
+                       (buffer(public_doc), public_doc_mac_tag))
 
         # Done public record is set
         self._connection.commit()
@@ -135,7 +133,7 @@ class DAO(object):
         # fetchone returns a tuple of buffers for the blob col and text for the text col
         query_result = cursor.fetchone()
 
-        if None == query_result:
+        if query_result is None:
             log.dao("Sqlite DAO Could not find an existing public record.")
             return None
 
@@ -147,7 +145,7 @@ class DAO(object):
         pub_rec_mac_tag = query_result[1]
         log.dao("public record mac tag: " + str(pub_rec_mac_tag))
 
-        return  public_record, pub_rec_mac_tag
+        return public_record, pub_rec_mac_tag
 
 
 
@@ -168,8 +166,7 @@ class DAO(object):
         cursor.execute(""" DELETE FROM repo_history; """)
 
         # sqlite blobs require buffer objects
-        cursor.execute(""" INSERT INTO repo_history(history_json) VALUES (?);""",
-                       (buffer(history_doc), ) )
+        cursor.execute(""" INSERT INTO repo_history(history_json) VALUES (?);""", (buffer(history_doc), ))
 
         # Done public record is set
         self._connection.commit()
@@ -194,7 +191,7 @@ class DAO(object):
         # fetchone returns a tuple of buffers for the blob col and text for the text col
         query_result = cursor.fetchone()
 
-        if None == query_result:
+        if query_result is None:
             log.dao("Sqlite DAO Could not find an existing history record.")
             return None
 
@@ -204,7 +201,7 @@ class DAO(object):
         log.dao("history record buffer, cast to bytes: " + str(history_record))
 
 
-        return  history_record
+        return history_record
 
 
 
@@ -219,9 +216,9 @@ class DAO(object):
         log.dao("add_segment() called on Sqlite DAO. sgid: " + str(sgid) + " segment_bytes: " + repr(segment_bytes))
 
 
-        assert sgid != None
+        assert sgid is not None
         assert isinstance(sgid, str) or isinstance(sgid, bytes)
-        assert segment_bytes != None
+        assert segment_bytes is not None
         assert isinstance(segment_bytes, str) or isinstance(segment_bytes, bytes)
 
         cursor = self._connection.cursor()
@@ -255,7 +252,7 @@ class DAO(object):
 
         log.daov("query result: " + repr(query_result))
 
-        if None == query_result:
+        if query_result is None:
             log.dao("Sqlite DAO Could not find segment with sgid: " + str(sgid))
             return None
 
@@ -312,7 +309,7 @@ class DAO(object):
 
         log.daov("query result: " + repr(query_result))
 
-        if None == query_result:
+        if query_result is None:
             log.dao("Sqlite DAO Could not find file with fid: " + str(fid))
             return None
 
@@ -369,7 +366,7 @@ class DAO(object):
 
         log.daov("query result: " + repr(query_result))
 
-        if None == query_result:
+        if query_result is None:
             log.dao("Sqlite DAO Could not find tree with tid: " + str(tid))
             return None
 
@@ -422,7 +419,7 @@ class DAO(object):
 
         cursor = self._connection.cursor()
 
-        cursor.execute("SELECT snapinfo_json FROM snapshots WHERE snapid == ?;", (snapid,) )
+        cursor.execute("SELECT snapinfo_json FROM snapshots WHERE snapid == ?;", (snapid,))
 
         # close the transaction
         self._connection.commit()
@@ -432,7 +429,7 @@ class DAO(object):
 
         log.daov("query result: " + repr(query_result))
 
-        if None == query_result:
+        if query_result is None:
             log.dao("Sqlite DAO Could not find snapshot with snapid: " + str(snapid))
             return None
 

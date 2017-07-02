@@ -13,8 +13,9 @@ import systemdefaults as sdef
 import version
 import uvs_errors
 import dal_psql
+import dal_blackhole
 import dal_sqlite
-from  uvs_errors import *
+from uvs_errors import *
 
 
 
@@ -49,7 +50,7 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     shadow files if any is present
     """
 
-    assert repo_root_path != None
+    assert repo_root_path is not None
     assert os.path.isdir(repo_root_path)
 
     log.uvsmgrv("init_new_uvs_repo_overwrite() called, repo root:" + str(repo_root_path))
@@ -114,17 +115,17 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
 
     hist_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
 
-    #assert (hist_doc['head']['snapid'] == None) or (hist_doc['head']['branch_handle'] == None)
-    #assert (hist_doc['head']['state'] != HeadState.ATTACHED) or (hist_doc['head']['branch_handle'] != None)
+    # assert (hist_doc['head']['snapid'] is None) or (hist_doc['head']['branch_handle'] is None)
+    # assert (hist_doc['head']['state'] != HeadState.ATTACHED) or (hist_doc['head']['branch_handle'] is not None)
 
     if hist_doc['head']['state'] == HeadState.ATTACHED:
-        assert hist_doc['head']['snapid'] == None
-        assert hist_doc['head']['branch_handle'] != None
+        assert hist_doc['head']['snapid'] is None
+        assert hist_doc['head']['branch_handle'] is not None
         pass
 
     elif hist_doc['head']['state'] == HeadState.DETACHED:
-        assert hist_doc['head']['snapid'] != None
-        assert hist_doc['head']['branch_handle'] == None
+        assert hist_doc['head']['snapid'] is not None
+        assert hist_doc['head']['branch_handle'] is None
         pass
 
 
@@ -158,10 +159,10 @@ class UVSManager(object):
 
         log.uvsmgrv("++++++ initializing new uvs manager")
 
-        assert repo_pass != None
+        assert repo_pass is not None
         assert isinstance(repo_pass, str) or isinstance(repo_pass, bytes) or isinstance(repo_pass, unicode)
 
-        assert repo_root_path != None
+        assert repo_root_path is not None
         assert os.path.isdir(repo_root_path)
 
         shadow_root_path = os.path.join(repo_root_path, sdef.SHADOW_FOLDER_NAME)
@@ -169,14 +170,14 @@ class UVSManager(object):
 
         self._dao = dal_sqlite.DAO(shadow_db_file_path)
 
-        pub_doc, pub_doc_mac_tag =  self._dao.get_repo_public_doc()
+        pub_doc, pub_doc_mac_tag = self._dao.get_repo_public_doc()
 
         log.uvsmgr("dao returned public document: " + str(pub_doc))
         log.uvsmgr("dao returned public document MAC tag: " + str(pub_doc_mac_tag))
 
 
         # if any of the pub doc or its mac tag is missing this is an invalid repo.
-        if (None == pub_doc) or (None == pub_doc_mac_tag):
+        if (pub_doc is None) or (pub_doc_mac_tag is None):
             raise uvs_errors.UVSErrorInvalidRepository("No valid public document found in this repository. ")
 
 
@@ -190,7 +191,7 @@ class UVSManager(object):
         if not public_doc_dict.has_key('salt'):
             raise uvs_errors.UVSErrorInvalidRepository('Invalid repo, public document does not have the salt.')
 
-        tmp_crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt= str(public_doc_dict['salt']))
+        tmp_crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt=str(public_doc_dict['salt']))
 
         mac_tag_recomputed = tmp_crypt_helper.get_uvsfp(pub_doc)
 
@@ -353,7 +354,7 @@ class UVSManager(object):
 
         # tree name will be the subdir name not the subdir path.
         for tree_name in subdir_name_list:
-            tid = self._curr_snapshot_prev_seen_tree_ids[ os.path.join(dirpath, tree_name) ]
+            tid = self._curr_snapshot_prev_seen_tree_ids[os.path.join(dirpath, tree_name)]
             tree_info['tids'].append((tree_name, tid))
 
 
@@ -379,7 +380,6 @@ class UVSManager(object):
         self._curr_snapshot_prev_seen_tree_ids[dirpath] = tree_id
 
         return tree_id
-
 
 
     def take_snapshot(self, snapshot_msg, author_name, author_email):
@@ -410,29 +410,24 @@ class UVSManager(object):
             if self._should_skip_directory_with_path(dirpath):
                 continue
 
-            tree_name = os.path.basename(dirpath)
-
             # get list of subdirs under version control
             vc_subdir_name_list = self._get_subdirs_list_excluding_ignorables(unfiltered_subdir_name_list)
             vc_file_name_list = self._get_filename_list_excluding_ignorables(unfiltered_file_name_list)
 
             log.uvsmgr('---------------------------------------------------------------------------------')
-            log.uvsmgr(">>>> creating new tree with name: >>" + tree_name + "<< for dirpath: " + str(dirpath))
+            log.uvsmgr(">>>> creating new tree for dirpath: " + str(dirpath))
             log.uvsmgr(">> subtree names: " + str(vc_subdir_name_list))
-            log.uvsmgr(">> filenames in this tree: " + str(vc_file_name_list) )
+            log.uvsmgr(">> filenames in this tree: " + str(vc_file_name_list))
             log.uvsmgrv("unfiltered_subdir_name_list: " + str(unfiltered_subdir_name_list))
             log.uvsmgrv("unfiltered_file_name_list: " + str(unfiltered_file_name_list))
 
             # the last iterations' write of this variable will survive the loop.
             # the last iterations should return the tid of the walk root
             walk_root_tid = self._make_and_save_tree(dirpath=dirpath, subdir_name_list=vc_subdir_name_list,
-                                  file_name_list=vc_file_name_list)
+                                                     file_name_list=vc_file_name_list)
 
-
-
-            assert walk_root_tid is not None
-
-
+        # out of the loop
+        assert walk_root_tid is not None
 
         # give a random id to the new snapshot.
         new_snapid = rand_util.get_new_random_snapshot_id()
@@ -449,7 +444,7 @@ class UVSManager(object):
         snapshot_info_ct = crypt_helper.encrypt_bytes(snapshot_info_serial)
 
         log.uvsmgr('new snapshot id: ' + new_snapid + "\nnew snapshot json(ct): " + snapshot_info_ct)
-        self._dao.add_snapshot(snapid=new_snapid, snapshot=snapshot_info_ct )
+        self._dao.add_snapshot(snapid=new_snapid, snapshot=snapshot_info_ct)
 
         # TODO update repo history
 
@@ -459,6 +454,79 @@ class UVSManager(object):
         return new_snapid
 
 
+    def compute_tree_id_for_directory(self, target_path):
+        """ Compute the tree id for the given target path, which must be a directory path.
+        This is the tree id that target_path would acquire if we tried to take an snapshot right now.
+
+        This method does not take the snapshot, just compute the tree id and return it, without causing any
+        side effects.
+        """
+
+        assert self._crypt_helper is not None
+        assert target_path is not None
+        assert isinstance(target_path, str) or isinstance(target_path, bytes) or isinstance(target_path, unicode)
+        assert os.path.isdir(target_path)
+
+        log.uvsmgrv("compute_tree_id_for_directory() called.")
+        log.uvsmgr("Computing tree id for directory: " + str(target_path))
+
+        # here is what we do: swap out the dao for a blackhole dao temporarily.
+        # do mostly the same thing that take snapshot does. than put the original dao back where it was.
+
+        # save the current dao.
+        original_dao = self._dao
+        self._dao = dal_blackhole.DAO()
+
+
+        # dict of pathname to tid
+        # i.e. ./tests/test_suite1/    -->>  tid0001
+        self._curr_snapshot_prev_seen_tree_ids = {}
+
+        # walk everything in this path
+        # . means simply cwd. this could be abs path or relative path to cwd
+        walk_root = target_path
+        walk_root_tid = None
+
+        for dirpath, unfiltered_subdir_name_list, unfiltered_file_name_list in os.walk(top=walk_root, topdown=False):
+
+            if self._should_skip_directory_with_path(dirpath):
+                continue
+
+            # get list of subdirs under version control
+            vc_subdir_name_list = self._get_subdirs_list_excluding_ignorables(unfiltered_subdir_name_list)
+            vc_file_name_list = self._get_filename_list_excluding_ignorables(unfiltered_file_name_list)
+
+            # the last iterations' write of this variable will survive the loop.
+            # the last iterations should return the tid of the walk root
+            walk_root_tid = self._make_and_save_tree(dirpath=dirpath, subdir_name_list=vc_subdir_name_list,
+                                                     file_name_list=vc_file_name_list)
+
+        # out of the loop
+        assert walk_root_tid is not None
+
+        log.uvsmgr('Computed tree id: ' + str(walk_root_tid) + "\nFor directory path: " + str(target_path))
+
+        # drop temp data structures for this snapshot
+        self._curr_snapshot_prev_seen_tree_ids = None
+
+        # restore the original dao
+        self._dao = original_dao
+
+        return walk_root_tid
+
+
+    def compute_repo_root_tree_id(self):
+        """ Compute the tree id for the repo root directory right now.
+        this is the tree id that an snapshot taken right now would point to if an snapshot were taken right now.
+
+        This method does not take the snapshot, just compute the tree id and return it, without causing any
+        side effects.
+        """
+
+        log.uvsmgrv("compute_repo_root_tree_id() called.")
+        log.uvsmgr("Computing repo root tree id, repo root path: " + str(self._repo_root_path))
+
+        return self.compute_tree_id_for_directory(target_path=self._repo_root_path)
 
 
 
@@ -480,153 +548,10 @@ class UVSManager(object):
 
             result_row = [snapid, snapinfo_dict['msg'], snapinfo_dict['author_name'], snapinfo_dict['author_email']]
 
-            log.uvsmgr("snapshot: " + str(result_row) )
+            log.uvsmgr("snapshot: " + str(result_row))
             result_snapshots.append(result_row)
 
         return result_snapshots
-
-
-
-    def make_sample_snapshot_1(self):
-        """ Create a test snapshot (commit in other vcs) """
-
-        assert self._dao is not None
-        assert self._crypt_helper is not None
-
-        crypt_help = self._crypt_helper
-
-        # -------------------------------------------------------- some sample segments and files
-        #  we have files hello.py morning.py afternoon.py
-
-        f1_bytes = b'''\n\n\n print "hello" \n\n\n'''
-        f1_fp =  crypt_help.get_uvsfp(f1_bytes)
-
-        f2_bytes =  b'''\n\n\n print "good morning" \n\n\n'''
-        f2_fp =  crypt_help.get_uvsfp(f2_bytes)
-
-        f3_bytes =  b'''\n\n\n print "good afternoon" \n\n\n'''
-        f3_fp =  crypt_help.get_uvsfp(f3_bytes)
-
-        # break file1 into segments
-        f1_s1 = f1_bytes[:7]
-        f1_s2 = f1_bytes[7:]
-
-        f2_s1 = f2_bytes[:7]
-        f2_s2 = f2_bytes[7:]
-
-        f3_s1 = f3_bytes[:7]
-        f3_s2 = f3_bytes[7:]
-
-        f1_s1_fp = crypt_help.get_uvsfp(f1_s1)
-        f1_s2_fp = crypt_help.get_uvsfp(f1_s2)
-        f2_s1_fp = crypt_help.get_uvsfp(f2_s1)
-        f2_s2_fp = crypt_help.get_uvsfp(f2_s2)
-        f3_s1_fp = crypt_help.get_uvsfp(f3_s1)
-        f3_s2_fp = crypt_help.get_uvsfp(f3_s2)
-
-        f1_s1_ct = crypt_help.encrypt_bytes(message=f1_s1)
-        f1_s2_ct = crypt_help.encrypt_bytes(message=f1_s2)
-        f2_s1_ct = crypt_help.encrypt_bytes(message=f2_s1)
-        f2_s2_ct = crypt_help.encrypt_bytes(message=f2_s2)
-        f3_s1_ct = crypt_help.encrypt_bytes(message=f3_s1)
-        f3_s2_ct = crypt_help.encrypt_bytes(message=f3_s2)
-
-        self._dao.add_segment(sgid=f1_s1_fp, segment_bytes=f1_s1_ct)
-        self._dao.add_segment(sgid=f1_s2_fp, segment_bytes=f1_s2_ct)
-        self._dao.add_segment(sgid=f2_s1_fp, segment_bytes=f2_s1_ct)
-        self._dao.add_segment(sgid=f2_s2_fp, segment_bytes=f2_s2_ct)
-        self._dao.add_segment(sgid=f3_s1_fp, segment_bytes=f3_s1_ct)
-        self._dao.add_segment(sgid=f3_s2_fp, segment_bytes=f3_s2_ct)
-
-
-
-        # -------------------------------------------------------------------------- lets add some files.
-
-        file1_info = {}
-
-        # verify fid is there to make sure records don't get reordered by an attacker.
-        # fid is the uvs fingerprint of the content of the file.
-        file1_info['verify_fid'] = f1_fp
-
-        # 'segments' is a list of 2-tuples, (sgid, offset)
-        # i.e. (sg001, 0)  means segment sg001 contains len(sg001) many bytes of this file starting from offset 0
-        # i.e. (sg002, 2100) means segment sg002 contains len(sg002) many bytes of this file starting from offset 2100
-        file1_info['segments'] = []
-        file1_info['segments'].append((f1_s1_fp, 0))
-        file1_info['segments'].append((f1_s2_fp, len(f1_s1)))
-
-        file2_info = {}
-        file2_info['verify_fid'] = f2_fp
-
-        # 'segments' is a list of 3-tuples, (sgid, offset)
-        file2_info['segments'] = []
-        file2_info['segments'].append((f2_s1_fp, 0))
-        file2_info['segments'].append((f2_s2_fp, len(f2_s1)))
-
-        file3_info = {}
-        file3_info['verify_fid'] = f3_fp
-
-        # 'segments' is a list of 3-tuples, (sgid, offset)
-        file3_info['segments'] = []
-        file3_info['segments'].append((f3_s1_fp, 0))
-        file3_info['segments'].append((f3_s2_fp, len(f3_s1)))
-
-        file1_info_serial = json.dumps(file1_info, ensure_ascii=False, sort_keys=True)
-        file2_info_serial = json.dumps(file2_info, ensure_ascii=False, sort_keys=True)
-        file3_info_serial = json.dumps(file3_info, ensure_ascii=False, sort_keys=True)
-
-        file1_info_ct = crypt_help.encrypt_bytes(message=file1_info_serial)
-        file2_info_ct = crypt_help.encrypt_bytes(message=file2_info_serial)
-        file3_info_ct = crypt_help.encrypt_bytes(message=file3_info_serial)
-
-        self._dao.add_file(fid=f1_fp, finfo=file1_info_ct)
-        self._dao.add_file(fid=f2_fp, finfo=file2_info_ct)
-        self._dao.add_file(fid=f3_fp, finfo=file3_info_ct)
-
-        # -------------------------------------------------------------------------- lets add some sample trees
-
-        tree1_info = {}
-        tree1_info['tids'] = []             # add subtrees if this directory has sub directories
-        tree1_info['fids'] = []             # add files if this directory has files in it.
-
-        # fids is a list of 2-tuples (name, fid) the list has to be sorted
-        tree1_info['fids'].append(("hello.py", f1_fp))
-        tree1_info['fids'].append(("morning.py", f2_fp))
-        tree1_info['fids'].append(("afternoon.py", f3_fp))
-
-        # it doesnt matter much what order things get sorted in, as long as it is deterministic.
-
-        # this says sort by elem[0] first and in case of ties sort by elem[1], i think just sort woulda done the same.
-        tree1_info['fids'].sort(key=lambda elem: (elem[0], elem[1]))
-        # tree1_info['fids'].sort()
-
-        tree1_json_serial = json.dumps(tree1_info, ensure_ascii=False, sort_keys=True)
-
-        # get the fingerprint and cipher text
-        tree1_fp = crypt_help.get_uvsfp(tree1_json_serial)
-        tree1_ct = crypt_help.encrypt_bytes(tree1_json_serial)
-
-        log.uvsmgrv('tree1 fp: ' + tree1_fp + "\ntree1 json: " + tree1_json_serial)
-
-        self._dao.add_tree(tid=tree1_fp, tree_info=tree1_ct)
-
-        # -------------------------------------------------------------------------- sample snapshots (commits)
-
-        snapshot1_id = rand_util.get_new_random_snapshot_id()
-
-        snapshot1_info = {}
-        snapshot1_info['verify_snapid'] = snapshot1_id
-        snapshot1_info['root'] = tree1_fp
-        snapshot1_info['msg'] = 'First commit into uvs'
-        snapshot1_info['author_name'] = 'kourosh'
-        snapshot1_info['author_email'] = 'kourosh.sc@gmail.com'
-        snapshot1_info['snapshot_signature'] = "put gpg signature here to prove the author's identity."
-
-        snapshot1_json_serial = json.dumps(snapshot1_info, ensure_ascii=False, sort_keys=True)
-        snapshot1_ct = crypt_help.encrypt_bytes(snapshot1_json_serial)
-
-        log.uvsmgrv('snapshot1 id: ' + snapshot1_id + "\nsnapshot1 json: " + snapshot1_ct)
-        self._dao.add_snapshot(snapid=snapshot1_id, snapshot=snapshot1_ct)
 
 
     def _checkout_file(self, fname, fid, dest_dir_path):
@@ -648,7 +573,7 @@ class UVSManager(object):
 
         log.uvsmgrv("finfo cipher text: " + str(finfo_ct))
 
-        if None == finfo_ct:
+        if finfo_ct is None:
             raise UVSErrorInvalidTree("No such file found for the given file id.")
 
         finfo_serial = self._crypt_helper.decrypt_bytes(ct=finfo_ct)
@@ -674,7 +599,7 @@ class UVSManager(object):
 
             segment_ct = self._dao.get_segment(sgid)
 
-            if None == segment_ct:
+            if segment_ct is None:
                 # TODO close and remove that file we opened.
                 raise UVSErrorInvalidTree("No such segment found for the given sgid.")
 
@@ -704,7 +629,7 @@ class UVSManager(object):
 
         tree_info_ct = self._dao.get_tree(tid)
 
-        if None == tree_info_ct:
+        if tree_info_ct is None:
             raise UVSErrorInvalidTree("Cant find the tree to check out. Data structures must be corrupted.")
 
         tree_info_serial = self._crypt_helper.decrypt_bytes(ct=tree_info_ct)
@@ -718,12 +643,12 @@ class UVSManager(object):
             raise UVSErrorInvalidTree("Tree json does not contain all expected keys.")
 
         for fname, fid in tree_info['fids']:
-            log.uvsmgrv("fname: " + str(fname) +  " fid: " + str(fid))
+            log.uvsmgrv("fname: " + str(fname) + " fid: " + str(fid))
             self._checkout_file(fname=fname, fid=fid, dest_dir_path=dest_dir_path)
 
         for tree_name, tree_id in tree_info['tids']:
 
-            log.uvsmgrv("tree_name: " + str(tree_name) +  " tree_id: " + str(tree_id))
+            log.uvsmgrv("tree_name: " + str(tree_name) + " tree_id: " + str(tree_id))
 
             # mkdir for tree name. add it to dest path and checkout the tid into it.
             new_tree_path = os.path.join(dest_dir_path, tree_name)
@@ -743,8 +668,8 @@ class UVSManager(object):
         """
 
         assert isinstance(clear_dest, bool)
-        assert snapid != None
-        assert self._repo_root_path != None
+        assert snapid is not None
+        assert self._repo_root_path is not None
         assert isinstance(snapid, str) or isinstance(snapid, bytes)
 
         # on windows path names are usually unicode, this might cause problems, be careful.
@@ -769,7 +694,7 @@ class UVSManager(object):
 
             for repo_root_member in repo_root_members:
                 if repo_root_member not in dont_remove:
-                    actual_paths_to_remove.append( os.path.join(self._repo_root_path, repo_root_member) )
+                    actual_paths_to_remove.append(os.path.join(self._repo_root_path, repo_root_member))
 
 
             log.uvsmgr("clearing repo root for new checkout, removing: " + repr(actual_paths_to_remove))
@@ -789,7 +714,7 @@ class UVSManager(object):
         #    call itself recursively on subdirs.
         snapshot_info_ct = self._dao.get_snapshot(snapid=snapid)
 
-        if None == snapshot_info_ct:
+        if snapshot_info_ct is None:
             raise UVSErrorInvalidSnapshot("Could not find that snapshot id.")
 
         snapshot_info_serial = self._crypt_helper.decrypt_bytes(ct=snapshot_info_ct)
@@ -799,7 +724,7 @@ class UVSManager(object):
         snapshot_info = json.loads(snapshot_info_serial)
 
         if ('verify_snapid' not in snapshot_info) or ('root' not in snapshot_info) or ('msg' not in snapshot_info) \
-                or ('author_name' not in snapshot_info) or ('author_email' not in snapshot_info) :
+                or ('author_name' not in snapshot_info) or ('author_email' not in snapshot_info):
             raise UVSErrorInvalidSnapshot("Snapshot json does not contain all expected keys.")
 
         if snapid != snapshot_info['verify_snapid']:
@@ -810,7 +735,7 @@ class UVSManager(object):
 
         log.uvsmgrv("root tid is: " + str(root_tid))
 
-        self._recursively_checkout_tree(tid=root_tid, dest_dir_path=self._repo_root_path )
+        self._recursively_checkout_tree(tid=root_tid, dest_dir_path=self._repo_root_path)
 
 
 
@@ -828,7 +753,7 @@ class UVSManager(object):
 #
 #     uvs_mgr.make_sample_snapshot_1()
 #
-#     ### ## tmp_snapid = uvs_mgr.take_snapshot(snapshot_msg="dumb commit", author_email="kourosh.sc@gmail.com", author_name="kourosh")
+#     ### ## tmp_snapid = uvs_mgr.take_snapshot(snapshot_msg="msg1", author_email="n/a", author_name="n/a")
 #
 #     snapid1 = "446839f7b3372392e73c9e869b16a93f13161152f02ab2565de6a985"
 #
