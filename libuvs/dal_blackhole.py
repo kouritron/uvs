@@ -88,7 +88,7 @@ class DAO(object):
         returns None, if no record with that key was found in the table.
         """
 
-        log.dao("get_segment() called on Blackhole DAO. sgid: " + str(sgid)) + " -- type(sgid): " + str(type(sgid))
+        log.dao("get_segment() called on Blackhole DAO. sgid: " + str(sgid) + " -- type(sgid): " + str(type(sgid)))
 
         assert sgid is not None
         assert isinstance(sgid, str) or isinstance(sgid, bytes) or isinstance(sgid, unicode)
@@ -118,7 +118,7 @@ class DAO(object):
         returns None, if no record with that key was found in the table.
         """
 
-        log.dao("get_file() called on Blackhole DAO. tid: " + str(fid)) + " -- type(fid): " + str(type(fid))
+        log.dao("get_file() called on Blackhole DAO. tid: " + str(fid) + " -- type(fid): " + str(type(fid)))
 
         assert fid is not None
         assert isinstance(fid, str) or isinstance(fid, bytes) or isinstance(fid, unicode)
@@ -149,7 +149,7 @@ class DAO(object):
         returns None, if no record with that key was found in the table.
         """
 
-        log.dao("get_tree() called on Blackhole DAO. tid: " + str(tid)) + " -- type(tid): " + str(type(tid))
+        log.dao("get_tree() called on Blackhole DAO. tid: " + str(tid) + " -- type(tid): " + str(type(tid)))
 
         assert tid is not None
         assert isinstance(tid, str) or isinstance(tid, bytes) or isinstance(tid, unicode)
@@ -184,8 +184,8 @@ class DAO(object):
 
         """
 
-        log.dao("get_snapshot() called on Blackhole DAO. snapid: " + str(snapid)) + " -- type(snapid): " \
-        + str(type(snapid))
+        log.dao("get_snapshot() called on Blackhole DAO. snapid: " + str(snapid) + " -- type(snapid): "
+                + str(type(snapid)))
 
         assert snapid is not None
         assert isinstance(snapid, str) or isinstance(snapid, bytes) or isinstance(snapid, unicode)
