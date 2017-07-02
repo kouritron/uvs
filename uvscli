@@ -115,6 +115,10 @@ def _commit(commit_msg):
         print e.message
         sys.exit(1)
 
+    # TODO
+    # check if working dir is clean
+
+
 
     snapid = uvsmgr.take_snapshot(snapshot_msg=commit_msg, author_name="n/a", author_email="n/a")
 

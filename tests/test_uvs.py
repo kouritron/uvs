@@ -91,8 +91,12 @@ class TestUVS(unittest.TestCase):
         pass
 
 
-    def test_1(self):
+    def test_init_make_3_commits_checkout_all_and_verify(self):
 
+
+        # first modularize the code that creates some random tree
+        # call it multiple times, each time commit and save the md5sums, repeat at least 3 times.
+        #
         pass
 
 

@@ -238,11 +238,10 @@ class DAO(object):
         returns None, if no record with that key was found in the table.
         """
 
-        log.dao("get_segment() called on Sqlite DAO. sgid: " + str(sgid))
+        log.dao("get_segment() called on Sqlite DAO. sgid: " + str(sgid)) + " -- type(sgid): " + str(type(sgid))
 
         assert sgid is not None
-        assert isinstance(sgid, str) or isinstance(sgid, bytes) or isinstance(sgid, unicode), \
-            "tid is not str/bytes/unicode, type(tid): " + str(type(sgid))
+        assert isinstance(sgid, str) or isinstance(sgid, bytes) or isinstance(sgid, unicode)
 
         cursor = self._connection.cursor()
 
@@ -296,11 +295,10 @@ class DAO(object):
         returns None, if no record with that key was found in the table.
         """
 
-        log.dao("get_file() called on Sqlite DAO. tid: " + str(fid))
+        log.dao("get_file() called on Sqlite DAO. tid: " + str(fid)) + " -- type(fid): " + str(type(fid))
 
         assert fid is not None
-        assert isinstance(fid, str) or isinstance(fid, bytes) or isinstance(fid, unicode), \
-            "tid is not str/bytes/unicode, type(tid): " + str(type(fid))
+        assert isinstance(fid, str) or isinstance(fid, bytes) or isinstance(fid, unicode)
 
         cursor = self._connection.cursor()
 
@@ -354,11 +352,10 @@ class DAO(object):
         returns None, if no record with that key was found in the table.
         """
 
-        log.dao("get_tree() called on Sqlite DAO. tid: " + str(tid))
+        log.dao("get_tree() called on Sqlite DAO. tid: " + str(tid)) + " -- type(tid): " + str(type(tid))
 
         assert tid is not None
-        assert isinstance(tid, str) or isinstance(tid, bytes) or isinstance(tid, unicode), \
-            "tid is not str/bytes/unicode, type(tid): " + str(type(tid))
+        assert isinstance(tid, str) or isinstance(tid, bytes) or isinstance(tid, unicode)
 
         cursor = self._connection.cursor()
 
@@ -418,10 +415,10 @@ class DAO(object):
         
         """
 
-        log.dao("get_snapshot() called on Sqlite DAO. snapid: " + str(snapid))
+        log.dao("get_snapshot() called on Sqlite DAO. Snapid: " + str(snapid)) + " --type(snapid): " + str(type(snapid))
 
         assert snapid is not None
-        assert isinstance(snapid, str) or isinstance(snapid, bytes)
+        assert isinstance(snapid, str) or isinstance(snapid, bytes) or isinstance(snapid, unicode)
 
         cursor = self._connection.cursor()
 
