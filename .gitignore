@@ -16,9 +16,13 @@ sample_repo/
 uvs.db
 
 ignoreme/
+ignorme/
 
 md5sums_tst_repo
 md5sums_test_repo
+ignoreme_md5sums
+ignorme_md5sums
+
 
 ###############################################################################
 ############################################################### Compiled source

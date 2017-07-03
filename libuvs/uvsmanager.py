@@ -467,6 +467,8 @@ class UVSManager(object):
         assert isinstance(target_path, str) or isinstance(target_path, bytes) or isinstance(target_path, unicode)
         assert os.path.isdir(target_path)
 
+        assert not self._should_skip_directory_with_path(target_path), 'cant compute tree id for this target path'
+
         log.uvsmgrv("compute_tree_id_for_directory() called.")
         log.uvsmgr("Computing tree id for directory: " + str(target_path))
 
