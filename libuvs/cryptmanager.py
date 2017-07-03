@@ -130,6 +130,16 @@ class UVSCryptHelper(object):
         # the len of the key that will be used to derive the uvs fingerprints for any object
         uvsfp_key_len = sdef.get_digest_size()
 
+        # the storage engine uses keyed hash as fingerprints of previously seen objects.
+        # there will be empty or guessable objects in the repository (such as an empty folder, or
+        # a file with known content, such as a license file) an attacker may guess the content of certain files.
+        # if this key len is too small (i.e. 8 bytes or 64 bits, attacker can brute force search for this key)
+        # and then he can test for membership of other files. uvs should protect users from membership tests
+        # (meaning if an attacker has a file, he should not be able to confirm or deny its membership of in the repo)
+        # rfc2104 recommends this key be at least as large as the digest size, i recommend it be larger than
+        # both 16 bytes and the digest size.
+        assert uvsfp_key_len >= 16, 'storage engine fp key needs to be large.'
+
         total_key_len = fernet_key_len + uvsfp_key_len
 
         # derive key returns a bytes object (no hex or base64 encoding here)
