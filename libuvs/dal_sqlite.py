@@ -71,14 +71,15 @@ class DAO(object):
         segment BLOB NOT NULL ); """)
 
 
+        cursor.execute("""CREATE TABLE IF NOT EXISTS repo_refs (
+        references_json BLOB PRIMARY KEY NOT NULL ); """)
+
+
         # every repo has single public record, this is just a json record with some public info about this repo
         # (like public name, salt, optional owner email if needed, ....)
         cursor.execute("""CREATE TABLE IF NOT EXISTS public (
         public_record BLOB PRIMARY KEY NOT NULL,
         public_record_mac TEXT NOT NULL ); """)
-
-        cursor.execute("""CREATE TABLE IF NOT EXISTS repo_history (
-        history_json BLOB PRIMARY KEY NOT NULL ); """)
 
 
         # close the transaction
@@ -149,40 +150,40 @@ class DAO(object):
 
 
 
-    def set_repo_history_doc(self, history_doc):
-        """ Every repository has exactly one record called history record (or history document)
+    def set_repo_references_doc(self, ref_doc):
+        """ Every repository has exactly one record called references record (or references document)
         This method sets that record to the supplied argument, overwriting a previous existing one, if needed.
         """
 
-        log.dao("set_repo_history_doc() called on Sqlite DAO.")
+        log.dao("set_repo_references_doc() called on Sqlite DAO.")
 
-        assert history_doc is not None
-        assert isinstance(history_doc, str) or isinstance(history_doc, bytes)
+        assert ref_doc is not None
+        assert isinstance(ref_doc, str) or isinstance(ref_doc, bytes)
 
 
         cursor = self._connection.cursor()
 
         # there can only be one public doc.
-        cursor.execute(""" DELETE FROM repo_history; """)
+        cursor.execute(""" DELETE FROM repo_refs; """)
 
         # sqlite blobs require buffer objects
-        cursor.execute(""" INSERT INTO repo_history(history_json) VALUES (?);""", (buffer(history_doc), ))
+        cursor.execute(""" INSERT INTO repo_refs(references_json) VALUES (?);""", (buffer(ref_doc), ))
 
-        # Done public record is set
+        # Done references doc is set
         self._connection.commit()
 
 
-    def get_repo_history_doc(self):
-        """ Every repository has exactly one record called history record (or history document)
+    def get_repo_references_doc(self):
+        """ Every repository has exactly one record called references record (or references document)
         Retrieve and return that document.
         """
 
-        log.dao("get_repo_history_doc() called on Sqlite DAO.")
+        log.dao("get_repo_references_doc() called on Sqlite DAO.")
 
         cursor = self._connection.cursor()
 
         # get the data back
-        cursor.execute(""" SELECT * FROM repo_history; """)
+        cursor.execute(""" SELECT * FROM repo_refs; """)
 
         # close the transaction
         self._connection.commit()
@@ -192,16 +193,16 @@ class DAO(object):
         query_result = cursor.fetchone()
 
         if query_result is None:
-            log.dao("Sqlite DAO Could not find an existing history record.")
+            log.dao("Sqlite DAO Could not find an existing references record.")
             return None
 
         log.daov("query_result: " + repr(query_result))
 
-        history_record = bytes(query_result[0])
-        log.dao("history record buffer, cast to bytes: " + str(history_record))
+        ref_doc = bytes(query_result[0])
+        log.dao("references record buffer, cast to bytes: " + str(ref_doc))
 
 
-        return history_record
+        return ref_doc
 
 
 

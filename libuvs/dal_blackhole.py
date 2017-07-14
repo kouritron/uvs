@@ -46,23 +46,23 @@ class DAO(object):
         return None, None
 
 
-    def set_repo_history_doc(self, history_doc):
-        """ Every repository has exactly one record called history record (or history document)
+    def set_repo_references_doc(self, ref_doc):
+        """ Every repository has exactly one record called references record (or references document)
         This method sets that record to the supplied argument, overwriting a previous existing one, if needed.
         """
 
-        log.dao("set_repo_history_doc() called on Blackhole DAO.")
+        log.dao("set_repo_references_doc() called on Blackhole DAO.")
 
-        assert history_doc is not None
-        assert isinstance(history_doc, str) or isinstance(history_doc, bytes)
+        assert ref_doc is not None
+        assert isinstance(ref_doc, str) or isinstance(ref_doc, bytes)
 
 
-    def get_repo_history_doc(self):
-        """ Every repository has exactly one record called history record (or history document)
+    def get_repo_references_doc(self):
+        """ Every repository has exactly one record called references record (or references document)
         Retrieve and return that document.
         """
 
-        log.dao("get_repo_history_doc() called on Blackhole DAO.")
+        log.dao("get_repo_references_doc() called on Blackhole DAO.")
 
         return None
 

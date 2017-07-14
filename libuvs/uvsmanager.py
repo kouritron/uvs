@@ -97,12 +97,12 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     public_doc_serialized_mac_tag = crypt_helper.get_uvsfp(public_doc_serialized)
 
 
-    # now make the history record
-    hist_doc = {}
+    # now make the references record
+    refs_doc = {}
 
     # represent the commit (snapshot) history with adjacency list
     # parents -> a dict of <str snapid> to <list of parent snapids of this snapshot (adj list or neibors list)>
-    hist_doc['parents'] = {}
+    refs_doc['parents'] = {}
 
 
     # one of "snapid" or "branch_handle" must always be None, head is either attached
@@ -110,34 +110,33 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     # or head is detached (not attached to any branch) in this case branch handle must be None, snapid
     # is the detached commit id (snapshot id)
 
-    # hist_doc['head'] = {'state': HeadState.UNINITIALIZED, 'snapid': None, 'branch_handle': None}
-    # hist_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
+    # refs_doc['head'] = {'state': HeadState.UNINITIALIZED, 'snapid': None, 'branch_handle': None}
+    # refs_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
 
-    hist_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
+    refs_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
 
-    # assert (hist_doc['head']['snapid'] is None) or (hist_doc['head']['branch_handle'] is None)
-    # assert (hist_doc['head']['state'] != HeadState.ATTACHED) or (hist_doc['head']['branch_handle'] is not None)
+    # assert (refs_doc['head']['snapid'] is None) or (refs_doc['head']['branch_handle'] is None)
+    # assert (refs_doc['head']['state'] != HeadState.ATTACHED) or (refs_doc['head']['branch_handle'] is not None)
 
-    if hist_doc['head']['state'] == HeadState.ATTACHED:
-        assert hist_doc['head']['snapid'] is None
-        assert hist_doc['head']['branch_handle'] is not None
+    if refs_doc['head']['state'] == HeadState.ATTACHED:
+        assert refs_doc['head']['snapid'] is None
+        assert refs_doc['head']['branch_handle'] is not None
         pass
 
-    elif hist_doc['head']['state'] == HeadState.DETACHED:
-        assert hist_doc['head']['snapid'] is not None
-        assert hist_doc['head']['branch_handle'] is None
+    elif refs_doc['head']['state'] == HeadState.DETACHED:
+        assert refs_doc['head']['snapid'] is not None
+        assert refs_doc['head']['branch_handle'] is None
         pass
 
 
     # i think we should separate branches and tags rather than treat them both as "refs" tags are fixed pointers
     # branches move as new commits (snapshots) are created on them.
     # branches is a dict from <str branch_name> to <str snapid of the latest snapshot of this branch>
-    hist_doc['branches'] = {'master': None}
+    refs_doc['branches'] = {'master': None}
 
 
-
-    hist_doc_serialized = json.dumps(hist_doc, ensure_ascii=False, sort_keys=True)
-    hist_doc_ct = crypt_helper.encrypt_bytes(hist_doc_serialized)
+    refs_doc_serialized = json.dumps(refs_doc, ensure_ascii=False, sort_keys=True)
+    refs_doc_ct = crypt_helper.encrypt_bytes(refs_doc_serialized)
 
     temp_dao = dal_sqlite.DAO(shadow_db_file_path)
 
@@ -145,7 +144,7 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     temp_dao.create_empty_tables()
 
     temp_dao.set_repo_public_doc(public_doc=public_doc_serialized, public_doc_mac_tag=public_doc_serialized_mac_tag)
-    temp_dao.set_repo_history_doc(history_doc=hist_doc_ct)
+    temp_dao.set_repo_references_doc(ref_doc=refs_doc_ct)
 
 
 class UVSManager(object):
@@ -330,8 +329,6 @@ class UVSManager(object):
         # (find the tids using path as key) and that should be all we need to make trees for dirs with subdirs..
 
         # now make the actual tree and store it in the dao.
-        # tree id is same as tree fingerprint.
-        tree_id = None
         crypt_helper = self._crypt_helper
 
         tree_info = {}
@@ -369,7 +366,7 @@ class UVSManager(object):
 
         tree_info_serial = json.dumps(tree_info, ensure_ascii=False, sort_keys=True)
 
-        # get the fingerprint and ciphertext
+        # get the fingerprint (aka tree id) and the ciphertext
         tree_id = crypt_helper.get_uvsfp(tree_info_serial)
         tree_info_ct = crypt_helper.encrypt_bytes(tree_info_serial)
 
