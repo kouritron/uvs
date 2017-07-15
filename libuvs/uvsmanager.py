@@ -18,7 +18,7 @@ import dal_sqlite
 from uvs_errors import *
 
 
-
+_MAIN_REF_DOC_NAME = 'main'
 
 
 
@@ -97,12 +97,13 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     public_doc_serialized_mac_tag = crypt_helper.get_uvsfp(public_doc_serialized)
 
 
-    # now make the references record
-    refs_doc = {}
+    # now make the main references document
+    main_refs_doc = {}
 
+    # TODO move the parents DAG into snapshots.
     # represent the commit (snapshot) history with adjacency list
     # parents -> a dict of <str snapid> to <list of parent snapids of this snapshot (adj list or neibors list)>
-    refs_doc['parents'] = {}
+    # main_refs_doc['parents'] = {}
 
 
     # one of "snapid" or "branch_handle" must always be None, head is either attached
@@ -110,33 +111,30 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     # or head is detached (not attached to any branch) in this case branch handle must be None, snapid
     # is the detached commit id (snapshot id)
 
-    # refs_doc['head'] = {'state': HeadState.UNINITIALIZED, 'snapid': None, 'branch_handle': None}
-    # refs_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
+    main_refs_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
 
-    refs_doc['head'] = {'state': HeadState.ATTACHED, 'snapid': None, 'branch_handle': 'master'}
-
-    # assert (refs_doc['head']['snapid'] is None) or (refs_doc['head']['branch_handle'] is None)
-    # assert (refs_doc['head']['state'] != HeadState.ATTACHED) or (refs_doc['head']['branch_handle'] is not None)
-
-    if refs_doc['head']['state'] == HeadState.ATTACHED:
-        assert refs_doc['head']['snapid'] is None
-        assert refs_doc['head']['branch_handle'] is not None
+    if main_refs_doc['head']['state'] == HeadState.ATTACHED:
+        assert main_refs_doc['head']['snapid'] is None
+        assert main_refs_doc['head']['branch_handle'] is not None
         pass
 
-    elif refs_doc['head']['state'] == HeadState.DETACHED:
-        assert refs_doc['head']['snapid'] is not None
-        assert refs_doc['head']['branch_handle'] is None
+    elif main_refs_doc['head']['state'] == HeadState.DETACHED:
+        assert main_refs_doc['head']['snapid'] is not None
+        assert main_refs_doc['head']['branch_handle'] is None
         pass
 
 
-    # i think we should separate branches and tags rather than treat them both as "refs" tags are fixed pointers
+    # branch names should be case insensitive, its 2 confusing to have master and MASteR and masTer be actually
+    # 3 different branches.
+    # users can't create a branch called head (or HEAD) (same as git)
+    # other branch names share the namespace with "master" and "head"
     # branches move as new commits (snapshots) are created on them.
-    # branches is a dict from <str branch_name> to <str snapid of the latest snapshot of this branch>
-    refs_doc['branches'] = {'master': None}
+    # ref_doc['branch_name']  <----> <str snapid of the latest snapshot of this branch>
+    main_refs_doc['master'] = None
 
 
-    refs_doc_serialized = json.dumps(refs_doc, ensure_ascii=False, sort_keys=True)
-    refs_doc_ct = crypt_helper.encrypt_bytes(refs_doc_serialized)
+    main_refs_doc_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+    main_refs_doc_ct = crypt_helper.encrypt_bytes(main_refs_doc_serialized)
 
     temp_dao = dal_sqlite.DAO(shadow_db_file_path)
 
@@ -144,7 +142,7 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     temp_dao.create_empty_tables()
 
     temp_dao.set_repo_public_doc(public_doc=public_doc_serialized, public_doc_mac_tag=public_doc_serialized_mac_tag)
-    temp_dao.set_repo_references_doc(ref_doc=refs_doc_ct)
+    temp_dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=main_refs_doc_ct)
 
 
 class UVSManager(object):

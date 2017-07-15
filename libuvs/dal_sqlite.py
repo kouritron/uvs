@@ -72,7 +72,8 @@ class DAO(object):
 
 
         cursor.execute("""CREATE TABLE IF NOT EXISTS repo_refs (
-        references_json BLOB PRIMARY KEY NOT NULL ); """)
+        ref_doc_id TEXT PRIMARY KEY NOT NULL,
+        ref_doc_json BLOB NOT NULL ); """)
 
 
         # every repo has single public record, this is just a json record with some public info about this repo
@@ -150,15 +151,17 @@ class DAO(object):
 
 
 
-    def set_repo_references_doc(self, ref_doc):
-        """ Every repository has exactly one record called references record (or references document)
-        This method sets that record to the supplied argument, overwriting a previous existing one, if needed.
+    def update_ref_doc(self, ref_doc_id, ref_doc):
+        """ set or update the "references document" for the given ref_doc_id.
         """
 
-        log.dao("set_repo_references_doc() called on Sqlite DAO.")
+        log.dao("update_repo_references_doc() called on Sqlite DAO. ref_doc_id: " + str(ref_doc_id))
+        log.daov("updating ref_doc_id: " + str(ref_doc_id) + " to ref_doc: " + str(ref_doc))
 
         assert ref_doc is not None
+        assert ref_doc_id is not None
         assert isinstance(ref_doc, str) or isinstance(ref_doc, bytes)
+        assert isinstance(ref_doc_id, str) or isinstance(ref_doc_id, bytes)
 
 
         cursor = self._connection.cursor()
@@ -166,44 +169,47 @@ class DAO(object):
         # there can only be one public doc.
         cursor.execute(""" DELETE FROM repo_refs; """)
 
-        # sqlite blobs require buffer objects
-        cursor.execute(""" INSERT INTO repo_refs(references_json) VALUES (?);""", (buffer(ref_doc), ))
+        # we want replace here not update, as update will do nothing if row does not exist.
+        # replace will replace if a unique constraint was violated, otherwise just add new record.
+        cursor.execute("INSERT OR REPLACE INTO repo_refs(ref_doc_id, ref_doc_json) VALUES (?, ? );",
+                       (ref_doc_id, buffer(ref_doc)))
 
         # Done references doc is set
         self._connection.commit()
 
 
-    def get_repo_references_doc(self):
+
+    def get_ref_doc(self, ref_doc_id):
         """ Every repository has exactly one record called references record (or references document)
         Retrieve and return that document.
         """
 
-        log.dao("get_repo_references_doc() called on Sqlite DAO.")
+        log.dao("get_ref_doc() called on Sqlite DAO. ref_doc_id: " + str(ref_doc_id))
+
+        assert ref_doc_id is not None
+        assert isinstance(ref_doc_id, str) or isinstance(ref_doc_id, bytes)
 
         cursor = self._connection.cursor()
 
         # get the data back
-        cursor.execute(""" SELECT * FROM repo_refs; """)
+        cursor.execute(""" SELECT ref_doc_json FROM repo_refs WHERE ref_doc_id == ? ; """, (ref_doc_id,) )
 
         # close the transaction
         self._connection.commit()
-
 
         # fetchone returns a tuple of buffers for the blob col and text for the text col
         query_result = cursor.fetchone()
 
         if query_result is None:
-            log.dao("Sqlite DAO Could not find an existing references record.")
+            log.dao("Sqlite DAO Could not find references record with id: " + str(ref_doc_id) )
             return None
 
         log.daov("query_result: " + repr(query_result))
 
         ref_doc = bytes(query_result[0])
-        log.dao("references record buffer, cast to bytes: " + str(ref_doc))
-
+        log.dao("Found ref_doc buffer, cast to bytes looks like this: " + str(ref_doc))
 
         return ref_doc
-
 
 
     def add_segment(self, sgid, segment_bytes):

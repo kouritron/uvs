@@ -46,23 +46,28 @@ class DAO(object):
         return None, None
 
 
-    def set_repo_references_doc(self, ref_doc):
-        """ Every repository has exactly one record called references record (or references document)
-        This method sets that record to the supplied argument, overwriting a previous existing one, if needed.
+    def update_ref_doc(self, ref_doc_id, ref_doc):
+        """ set or update the "references document" for the given ref_doc_id.
         """
 
-        log.dao("set_repo_references_doc() called on Blackhole DAO.")
+        log.dao("update_repo_references_doc() called on Blackhole DAO. ref_doc_id: " + str(ref_doc_id))
+        log.daov("Tossing ref_doc into blackhole, ref_doc: " + str(ref_doc))
 
         assert ref_doc is not None
+        assert ref_doc_id is not None
         assert isinstance(ref_doc, str) or isinstance(ref_doc, bytes)
+        assert isinstance(ref_doc_id, str) or isinstance(ref_doc_id, bytes)
 
 
-    def get_repo_references_doc(self):
+    def get_ref_doc(self, ref_doc_id):
         """ Every repository has exactly one record called references record (or references document)
         Retrieve and return that document.
         """
 
-        log.dao("get_repo_references_doc() called on Blackhole DAO.")
+        log.dao("get_ref_doc() called on Blackhole DAO.")
+
+        assert ref_doc_id is not None
+        assert isinstance(ref_doc_id, str) or isinstance(ref_doc_id, bytes)
 
         return None
 
