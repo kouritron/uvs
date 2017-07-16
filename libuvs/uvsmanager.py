@@ -26,12 +26,9 @@ class HeadState(object):
     """" Enumerate different states a head reference can be in. """
 
 
-    # UNINITIALIZED = 101
-    # DETACHED = 102
-    # ATTACHED = 103
+    # DETACHED = 111
+    # ATTACHED = 112
 
-    # means repo is empty head has never pointed to anything.
-    UNINITIALIZED = "UNINITIALIZED"
 
     # means head reference is to a snapshot id.
     DETACHED = "DETACHED"
@@ -100,11 +97,14 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     # now make the main references document
     main_refs_doc = {}
 
-    # TODO move the parents DAG into snapshots.
-    # represent the commit (snapshot) history with adjacency list
-    # parents -> a dict of <str snapid> to <list of parent snapids of this snapshot (adj list or neibors list)>
-    # main_refs_doc['parents'] = {}
 
+    # branch names should be case insensitive, its 2 confusing to have master and MASteR and masTer be actually
+    # 3 different branches.
+    # users can't create a branch called head (or HEAD) (same as git)
+    # other branch names share the namespace with "master" and "head"
+    # branches move as new commits (snapshots) are created on them.
+    # ref_doc['branch_name']  <----> <str snapid of the latest snapshot of this branch>
+    main_refs_doc['master'] = None
 
     # one of "snapid" or "branch_handle" must always be None, head is either attached
     # in which case snapid should be none, to find the snapshot dereference the branch handle.
@@ -116,21 +116,14 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
     if main_refs_doc['head']['state'] == HeadState.ATTACHED:
         assert main_refs_doc['head']['snapid'] is None
         assert main_refs_doc['head']['branch_handle'] is not None
-        pass
+
+        # if branch handle exists assert that it points to a valid branch name
+        assert main_refs_doc.has_key( main_refs_doc['head']['branch_handle'] )
 
     elif main_refs_doc['head']['state'] == HeadState.DETACHED:
         assert main_refs_doc['head']['snapid'] is not None
         assert main_refs_doc['head']['branch_handle'] is None
         pass
-
-
-    # branch names should be case insensitive, its 2 confusing to have master and MASteR and masTer be actually
-    # 3 different branches.
-    # users can't create a branch called head (or HEAD) (same as git)
-    # other branch names share the namespace with "master" and "head"
-    # branches move as new commits (snapshots) are created on them.
-    # ref_doc['branch_name']  <----> <str snapid of the latest snapshot of this branch>
-    main_refs_doc['master'] = None
 
 
     main_refs_doc_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
@@ -389,6 +382,74 @@ class UVSManager(object):
 
         log.uvsmgr("Taking snapshot of repo root: " + str(self._repo_root_path))
 
+        # first fetch the main_refs_doc
+        main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
+
+        main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
+
+        main_refs_doc = json.loads(main_refs_doc_serial)
+
+        if (main_refs_doc is None) or ('head' not in main_refs_doc):
+            raise UVSErrorInvalidRepository("Error: head does not exist. Are you sure this is a uvs repository.")
+
+
+        # TODO refactor this function for merge commits where we have more than, one parent.
+        # while you are refactoring this maybe abstract some code away for compute tree id function (the blackhole
+        # dao trick) and re-use the same code. to lessen code repeat, although its not much.
+        # this new snapshot will have one parent, because its not a merge snapshot (commit).
+        # the one parent should be:
+        # >> empty list ( [] ) if repo is empty.
+        # >> [parent_snapid] if one parent
+        # >> [parent1_snapid, parent2_snapid, ....] if more than one parent ( i dont  think we ever have more than 2
+
+        parent_snapids = []
+
+
+        assert main_refs_doc['head'].has_key('state')
+        assert main_refs_doc['head'].has_key('snapid')
+        assert main_refs_doc['head'].has_key('branch_handle')
+
+        if main_refs_doc['head']['state'] == HeadState.ATTACHED:
+            assert main_refs_doc['head']['snapid'] is None
+            assert main_refs_doc['head']['branch_handle'] is not None
+
+            current_branch = main_refs_doc['head']['branch_handle']
+            log.uvsmgr (">>> current_branch: " + str(current_branch))
+
+            # assert that current branch name actually is the branch name of a valid branch.
+            assert main_refs_doc.has_key(current_branch)
+
+            # now dereference current branch to get a snapid of the parent.
+            if main_refs_doc[current_branch] is not None:
+                parent_snapids.append(main_refs_doc[current_branch])
+
+        elif main_refs_doc['head']['state'] == HeadState.DETACHED:
+            assert main_refs_doc['head']['snapid'] is not None
+            assert main_refs_doc['head']['branch_handle'] is None
+
+            # find the parent snap id.
+            head_snapid = main_refs_doc['head']['snapid']
+            if head_snapid is not None:
+                parent_snapids.append(head_snapid)
+
+
+        for parent_snapid in parent_snapids:
+
+            log.uvsmgr(">>>> parent_snapid: " + str(parent_snapid) )
+
+            parent_snap_json = self._dao.get_snapshot(snapid=parent_snapid)
+            assert parent_snap_json is not None
+
+
+        # in case parent_snapids is an empty list, assert that the repo has no commits (just got inited)
+        if 0 == len(parent_snapids):
+            assert 0 == self._dao.get_snapshots_count()
+
+
+
+
+
+
         crypt_helper = self._crypt_helper
 
         # dict of pathname to tid
@@ -435,13 +496,57 @@ class UVSManager(object):
         snapshot_info['author_email'] = author_email
         snapshot_info['snapshot_signature'] = "put gpg signature here to prove the author's identity."
 
+        # represent the commit (snapshot) history with adjacency list
+        # each snapshot knows its parents (or neighbours in graph speech)
+        snapshot_info['parents'] = parent_snapids
+
+
+
         snapshot_info_serial = json.dumps(snapshot_info, ensure_ascii=False, sort_keys=True)
         snapshot_info_ct = crypt_helper.encrypt_bytes(snapshot_info_serial)
 
         log.uvsmgr('new snapshot id: ' + new_snapid + "\nnew snapshot json(ct): " + snapshot_info_ct)
+
+        # TODO refactor dao.
+        # here we wanna say dao.begin_transaction
+        # add snapshot to the snapshots table.
+        # update head, master or something else.
+        # now dao.commit_transaction
+
         self._dao.add_snapshot(snapid=new_snapid, snapshot=snapshot_info_ct)
 
-        # TODO update repo history
+
+        # commit made now update head, master, other branch pointers.
+
+        if main_refs_doc['head']['state'] == HeadState.ATTACHED:
+            assert main_refs_doc['head']['snapid'] is None
+            assert main_refs_doc['head']['branch_handle'] is not None
+
+            # assert that current branch name actually is the branch name of a valid branch.
+            current_branch = main_refs_doc['head']['branch_handle']
+            assert main_refs_doc.has_key(current_branch)
+
+            # now set the snapshot id on the branch pointer.
+            # branches move as new commits (snapshots) are created on them.
+            # ref_doc['branch_name']  <----> <str snapid of the latest snapshot of this branch>
+            main_refs_doc[current_branch] = new_snapid
+
+        elif main_refs_doc['head']['state'] == HeadState.DETACHED:
+            assert main_refs_doc['head']['snapid'] is not None
+            assert main_refs_doc['head']['branch_handle'] is None
+
+            main_refs_doc['head']['snapid'] = new_snapid
+
+
+        # save the main refs
+        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+
+        #log.uvsmgrv("type(new_main_refs_serialized): " + str(type(new_main_refs_serialized)))
+
+        new_main_refs_ct = crypt_helper.encrypt_bytes(new_main_refs_serialized)
+
+        self._dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=new_main_refs_ct)
+
 
         # drop temp data structures for this snapshot
         self._curr_snapshot_prev_seen_tree_ids = None

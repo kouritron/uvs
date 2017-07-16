@@ -207,6 +207,19 @@ class DAO(object):
         return None
 
 
+    def get_snapshots_count(self):
+        """ Find and return the number of snapshots that exist in this repository.
+        this is the total number of records found in the snapshots table, the total may include decoy snapshots
+        if we wanted to support that.
+
+        this will return 0 if no snapshots exist in this repository.
+        """
+
+        log.dao("get_snapshots_count() called on Blackhole DAO.")
+
+        return 0
+
+
 #
 # if "__main__" == __name__:
 #

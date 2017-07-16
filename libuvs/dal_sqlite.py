@@ -160,8 +160,8 @@ class DAO(object):
 
         assert ref_doc is not None
         assert ref_doc_id is not None
-        assert isinstance(ref_doc, str) or isinstance(ref_doc, bytes)
-        assert isinstance(ref_doc_id, str) or isinstance(ref_doc_id, bytes)
+        assert isinstance(ref_doc, str) or isinstance(ref_doc, bytes) or isinstance(ref_doc, unicode)
+        assert isinstance(ref_doc_id, str) or isinstance(ref_doc_id, bytes) or isinstance(ref_doc_id, unicode)
 
 
         cursor = self._connection.cursor()
@@ -187,7 +187,7 @@ class DAO(object):
         log.dao("get_ref_doc() called on Sqlite DAO. ref_doc_id: " + str(ref_doc_id))
 
         assert ref_doc_id is not None
-        assert isinstance(ref_doc_id, str) or isinstance(ref_doc_id, bytes)
+        assert isinstance(ref_doc_id, str) or isinstance(ref_doc_id, bytes) or isinstance(ref_doc_id, unicode)
 
         cursor = self._connection.cursor()
 
@@ -469,6 +469,37 @@ class DAO(object):
 
         return query_result
 
+
+    def get_snapshots_count(self):
+        """ Find and return the number of snapshots that exist in this repository.
+        this is the total number of records found in the snapshots table, the total may include decoy snapshots
+        if we wanted to support that.
+
+        this will return 0 if no snapshots exist in this repository.
+
+        """
+
+        log.dao("get_snapshots_count() called on Sqlite DAO.")
+
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT count(snapid) FROM snapshots;")
+
+        # close the transaction
+        self._connection.commit()
+
+        # fetchone returns a tuple of tuples
+        query_result = cursor.fetchone()
+
+        log.daov("query result: " + repr(query_result))
+
+        # i should get empty list [] if no records found.
+        assert query_result is not None
+
+        count_total = query_result[0]
+        log.dao("Found a total of: " + str(count_total)  + " snapshots.")
+
+        return count_total
 
 #
 # if "__main__" == __name__:
