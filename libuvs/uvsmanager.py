@@ -374,6 +374,7 @@ class UVSManager(object):
         """ Take a snapshot image of this repository  right now and save the cipher text to uvs.shadow db file.
         returns the snapshot id of the newly created snapshot. 
         """
+
         assert self._dao is not None
         assert self._crypt_helper is not None
         assert isinstance(snapshot_msg, str) or isinstance(snapshot_msg, bytes) or isinstance(snapshot_msg, unicode)
@@ -494,7 +495,9 @@ class UVSManager(object):
         snapshot_info['msg'] = snapshot_msg
         snapshot_info['author_name'] = author_name
         snapshot_info['author_email'] = author_email
-        snapshot_info['snapshot_signature'] = "put gpg signature here to prove the author's identity."
+
+        # TODO move this into another table called digital signatures. its not needed for now.
+        #snapshot_info['snapshot_signature'] = "put gpg signature here to prove the author's identity."
 
         # represent the commit (snapshot) history with adjacency list
         # each snapshot knows its parents (or neighbours in graph speech)
@@ -630,6 +633,101 @@ class UVSManager(object):
 
         return self.compute_tree_id_for_directory(target_path=self._repo_root_path)
 
+    def get_status(self):
+        """ Compute and return repository status as a dict.
+
+        the dict will have these key, values:
+
+        "working_dir_clean" : True/False    # true if there are no un-committed changes.
+        "head" : commit id     # (snapid) of the repository head, or None if repo empty.
+        "detached_head" : True/False
+
+        if  "detached_head" is False: this key, value also present:
+
+        "current_branch" : "branch_name"
+
+        """
+
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        log.uvsmgr("checking working directory for un-committed changes. repo root: " + str(self._repo_root_path))
+
+        result = {}
+
+        # first fetch the main_refs_doc
+        main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
+
+        main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
+
+        main_refs_doc = json.loads(main_refs_doc_serial)
+
+        if (main_refs_doc is None) or ('head' not in main_refs_doc):
+            raise UVSErrorInvalidRepository("Error: head does not exist. Are you sure this is a uvs repository.")
+
+
+        assert main_refs_doc['head'].has_key('state')
+        assert main_refs_doc['head'].has_key('snapid')
+        assert main_refs_doc['head'].has_key('branch_handle')
+
+        if main_refs_doc['head']['state'] == HeadState.ATTACHED:
+            assert main_refs_doc['head']['snapid'] is None
+            assert main_refs_doc['head']['branch_handle'] is not None
+
+            current_branch = main_refs_doc['head']['branch_handle']
+
+            # assert that current branch name actually is the branch name of a valid branch.
+            assert main_refs_doc.has_key(current_branch)
+            log.uvsmgr("Head is attached to branch: " + str(current_branch))
+
+            result['detached_head'] = False
+            result['current_branch'] = current_branch
+
+            # now dereference current branch to get a snapid of the parent.
+            result['head'] = main_refs_doc[current_branch]
+
+        elif main_refs_doc['head']['state'] == HeadState.DETACHED:
+            assert main_refs_doc['head']['snapid'] is not None
+            assert main_refs_doc['head']['branch_handle'] is None
+
+            log.uvsmgr("Repo is in detached head state.")
+
+            result['detached_head'] = True
+            result['head'] = main_refs_doc['head']['snapid']
+
+        # if repo is empty working dir is not clean. because none tree_id is different then whatever we would get for
+        # empty tree.
+        result['working_dir_clean'] = False
+
+        if result['head'] is None:
+            return result
+
+        current_root_tree_id = self.compute_repo_root_tree_id()
+
+        # get the root tree id of head. (raise error if decryption fails, or mac failed.)
+        snapshot_info_ct = self._dao.get_snapshot(snapid= result['head'])
+
+        if snapshot_info_ct is None:
+            raise UVSErrorInvalidSnapshot("Could not find snapshot with id: " + str(result['head']))
+
+        snapshot_info_serial = self._crypt_helper.decrypt_bytes(ct=snapshot_info_ct)
+
+        log.uvsmgr("head snapshot retrieved and decrypted: " + str(snapshot_info_serial))
+
+        snapshot_info = json.loads(snapshot_info_serial)
+
+        if 'root' not in snapshot_info:
+            raise UVSErrorInvalidSnapshot("Snapshot json does not contain all expected keys.")
+
+        head_root_tid = snapshot_info['root']
+
+        if current_root_tree_id == head_root_tid:
+            result['working_dir_clean'] = True
+
+        return result
+
+
 
 
     def list_all_snapshots(self):
@@ -684,6 +782,8 @@ class UVSManager(object):
 
         finfo = json.loads(finfo_serial)
 
+        # TODO get rid of these stupid verify_fids, its so ugly. we need a proper AEAD crypto module Fernet sucks.
+        # by not allowing us to supply associated data to be included into the tag.
         if ('segments' not in finfo) or ('verify_fid' not in finfo):
             raise UVSErrorInvalidFile("File json does not contain all expected keys.")
 
@@ -825,6 +925,7 @@ class UVSManager(object):
 
         snapshot_info = json.loads(snapshot_info_serial)
 
+        # TODO get rid of verify snapid BS, refactor into a proper AEAD system.
         if ('verify_snapid' not in snapshot_info) or ('root' not in snapshot_info) or ('msg' not in snapshot_info) \
                 or ('author_name' not in snapshot_info) or ('author_email' not in snapshot_info):
             raise UVSErrorInvalidSnapshot("Snapshot json does not contain all expected keys.")

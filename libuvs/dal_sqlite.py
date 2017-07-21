@@ -396,12 +396,12 @@ class DAO(object):
         I will store and retrieve whatever you give me.
         """
 
-        log.dao("add_snapshot() called on Sqlite DAO. snapid: " + str(snapid) + " snapshot: " + str(snapshot))
+        log.dao("add_snapshot() called on Sqlite DAO. snapid:\n" + repr(snapid) + "\nsnapshot: \n" + repr(snapshot))
 
         assert snapid is not None
         assert snapshot is not None
-        assert isinstance(snapid, str) or isinstance(snapid, bytes)
-        assert isinstance(snapshot, str) or isinstance(snapshot, bytes)
+        assert isinstance(snapid, str) or isinstance(snapid, bytes) or isinstance(snapid, unicode)
+        assert isinstance(snapshot, str) or isinstance(snapshot, bytes) or isinstance(snapshot, unicode)
 
         cursor = self._connection.cursor()
 

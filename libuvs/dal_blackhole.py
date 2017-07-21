@@ -179,8 +179,8 @@ class DAO(object):
 
         assert snapid is not None
         assert snapshot is not None
-        assert isinstance(snapid, str) or isinstance(snapid, bytes)
-        assert isinstance(snapshot, str) or isinstance(snapshot, bytes)
+        assert isinstance(snapid, str) or isinstance(snapid, bytes) or isinstance(snapid, unicode)
+        assert isinstance(snapshot, str) or isinstance(snapshot, bytes) or isinstance(snapid, unicode)
 
 
     def get_snapshot(self, snapid):

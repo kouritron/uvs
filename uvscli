@@ -172,6 +172,62 @@ def _log_commits():
 
 
 
+def _show_status():
+    """
+    """
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_show_status called. repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
+    except UVSErrorTamperDetected as e:
+        print e.message
+        sys.exit(1)
+
+    repo_status = uvsmgr.get_status()
+
+    # repo_status["working_dir_clean"]: True/False    # true if there are no un-committed changes.
+    # repo_status["head"]: commit id                  # (snapid) of the repository head, or None if repo empty.
+    # repo_status["detached_head"]: True/False        # detached or attached to a branch
+    #
+    # if  "detached_head" is False: this key, value also present:
+    # repo_status["current_branch"]: "branch_name"
+
+    if repo_status['working_dir_clean']:
+        print "working directory is clean."
+    else:
+        print "working directory has un-committed changes."
+
+
+    if repo_status['head'] is None:
+        print "uvs repository appears to be emtpy."
+    else:
+        print "head is at: " + str(repo_status["head"])
+        if repo_status['detached_head']:
+            print "head is in detached state."
+        else:
+            print "head is attached to current branch: " + str(repo_status['current_branch'])
+
+
 
 
 def _parse_cmdline():
@@ -183,7 +239,7 @@ def _parse_cmdline():
     parser = argparse.ArgumentParser(description=desc_msg)
 
     parser.add_argument("subcmd1", help="what should uvs do",
-                        choices=['init', 'log', 'commit', 'checkout', 'branch', 'merge'])
+                        choices=['init', 'status', 'log', 'commit', 'checkout', 'branch', 'merge'])
 
     parser.add_argument("-m", "--message", help="commit message")
     parser.add_argument("-c", "--cid", help="commit id")
@@ -195,6 +251,10 @@ def _parse_cmdline():
     if 'init' == args.subcmd1:
         log.cliv(">>>> init sub command called.")
         _init_new_repo()
+
+    elif 'status' == args.subcmd1:
+        log.cliv(">>>> status sub command called.")
+        _show_status()
 
     elif 'log' == args.subcmd1:
         log.cliv(">>>> log sub command called.")
