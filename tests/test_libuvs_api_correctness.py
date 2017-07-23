@@ -99,7 +99,7 @@ class TestUVS(unittest.TestCase):
         paths_to_remove = []
 
         dont_remove = set()
-        dont_remove.add(sdef.CACHE_FOLDER_NAME)
+        dont_remove.add(sdef.TEMP_DIR_NAME)
         dont_remove.add(sdef.SHADOW_FOLDER_NAME)
         dont_remove.add(sdef.SHADOW_DB_FILE_NAME)
 
@@ -151,7 +151,7 @@ class TestUVS(unittest.TestCase):
         self.assertEquals(shadow_file_hash_before_compute_tree_id, tu.get_file_hash(shadow_file_path))
 
         skip_paths = set()
-        skip_paths.add(sdef.CACHE_FOLDER_NAME)
+        skip_paths.add(sdef.TEMP_DIR_NAME)
         skip_paths.add(sdef.SHADOW_FOLDER_NAME)
         skip_paths.add(sdef.SHADOW_DB_FILE_NAME)
 
@@ -197,7 +197,7 @@ class TestUVS(unittest.TestCase):
         self.assertEquals(root_tid_2, root_tid_3)
 
         skip_paths = set()
-        skip_paths.add(sdef.CACHE_FOLDER_NAME)
+        skip_paths.add(sdef.TEMP_DIR_NAME)
         skip_paths.add(sdef.SHADOW_FOLDER_NAME)
         skip_paths.add(sdef.SHADOW_DB_FILE_NAME)
 

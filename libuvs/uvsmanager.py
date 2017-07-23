@@ -684,7 +684,7 @@ class UVSManager(object):
             result['detached_head'] = False
             result['current_branch'] = current_branch
 
-            # now dereference current branch to get a snapid of the parent.
+            # follow current branch's handle to get a snapid of repo head.
             result['head'] = main_refs_doc[current_branch]
 
         elif main_refs_doc['head']['state'] == HeadState.DETACHED:
@@ -727,6 +727,87 @@ class UVSManager(object):
 
         return result
 
+
+
+    def create_new_branch(self, new_branch_name, set_current_branch):
+        """ Create a new branch reference and have it point to whatever head is pointing to right now.
+        if set_current_branch flag is true, head will point to this branch name after this operation.
+
+        :param new_branch_name: the name of the new branch
+        :param set_current_branch: if True the new branch will also become the repository's current branch
+        :return: void if successful, might raise error if operation can not be completed.
+        """
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        assert isinstance(new_branch_name, str) or isinstance(new_branch_name, unicode)
+        assert isinstance(set_current_branch, bool)
+
+
+        log.uvsmgr("checking working directory for un-committed changes. repo root: " + str(self._repo_root_path))
+
+
+        # first fetch the main_refs_doc
+        main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
+
+        main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
+
+        main_refs_doc = json.loads(main_refs_doc_serial)
+
+        if (main_refs_doc is None) or ('head' not in main_refs_doc):
+            raise UVSErrorInvalidRepository("Error: head does not exist. Are you sure this is a uvs repository.")
+
+
+        assert main_refs_doc['head'].has_key('state')
+        assert main_refs_doc['head'].has_key('snapid')
+        assert main_refs_doc['head'].has_key('branch_handle')
+
+        if main_refs_doc['head']['state'] == HeadState.ATTACHED:
+            assert main_refs_doc['head']['snapid'] is None
+            assert main_refs_doc['head']['branch_handle'] is not None
+
+            current_branch = main_refs_doc['head']['branch_handle']
+
+            # assert that current branch name actually is the branch name of a valid branch.
+            assert main_refs_doc.has_key(current_branch)
+            log.uvsmgr("Head is attached to branch: " + str(current_branch))
+
+            # follow current branch's handle to get a snapid of repo head.
+            current_head = main_refs_doc[current_branch]
+
+            # new branch points where head was at the time of its creation. leave previous branch pointer
+            # pointing to whatever it was pointing to.
+            main_refs_doc[new_branch_name] = current_head
+
+
+        elif main_refs_doc['head']['state'] == HeadState.DETACHED:
+            assert main_refs_doc['head']['snapid'] is not None
+            assert main_refs_doc['head']['branch_handle'] is None
+
+            log.uvsmgr("Repo is in detached head state.")
+
+            # in git if head is detached. and you create a new branch (git branch my_branch)
+            # my_branch will point to head whatever it is right now. but head will not re-attach.
+            # to re-attach head you would run: $ git checkout my_branch
+            # In a sense head simply means the current checked out commit. creating a branch does not re-attach
+            # anything, check out a branch and head will re-attach.
+            main_refs_doc[new_branch_name] = main_refs_doc['head']['snapid']
+
+
+        if set_current_branch:
+            main_refs_doc['head']['state'] = HeadState.ATTACHED
+            main_refs_doc['head']['snapid'] = None
+            main_refs_doc['head']['branch_handle'] = new_branch_name
+
+        # save the main refs
+        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+
+        #log.uvsmgrv("type(new_main_refs_serialized): " + str(type(new_main_refs_serialized)))
+
+        new_main_refs_ct = self._crypt_helper.encrypt_bytes(new_main_refs_serialized)
+
+        self._dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=new_main_refs_ct)
 
 
 
@@ -890,7 +971,7 @@ class UVSManager(object):
             actual_paths_to_remove = []
 
             dont_remove = set()
-            dont_remove.add(sdef.CACHE_FOLDER_NAME)
+            dont_remove.add(sdef.TEMP_DIR_NAME)
             dont_remove.add(sdef.SHADOW_FOLDER_NAME)
             dont_remove.add(sdef.SHADOW_DB_FILE_NAME)
 

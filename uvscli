@@ -30,7 +30,7 @@ def _init_new_repo():
         print "This directory (" + cwd + ") appears to be a uvs repository already."
         print "Cancelling init to keep this repository."
         print "If you really want to re-init an empty repository here, delete uvs internal folders first."
-        print "These should be called: " + sdef.SHADOW_FOLDER_NAME + ", " + sdef.CACHE_FOLDER_NAME
+        print "These should be called: " + sdef.SHADOW_FOLDER_NAME + ", " + sdef.TEMP_DIR_NAME
         sys.exit(1)
 
 
@@ -157,8 +157,7 @@ def _log_commits():
         sys.exit(1)
 
     # TODO handle the case where there might be 700k commits in the repo (show them 100 at a time or something)
-    # right just print everything.
-
+    # right now we just print everything.
 
     # i am expecting a list of tuples like this;
     # <snapid, commit msg, author name, author email>
@@ -173,7 +172,8 @@ def _log_commits():
 
 
 def _show_status():
-    """
+    """ Print the status of the repository.
+    this includes head, head state, and whether working directory is clean or not.
     """
 
     # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
@@ -221,12 +221,50 @@ def _show_status():
     if repo_status['head'] is None:
         print "uvs repository appears to be emtpy."
     else:
-        print "head is at: " + str(repo_status["head"])
         if repo_status['detached_head']:
             print "head is in detached state."
+            print "head is at commit: " + str(repo_status["head"])
         else:
             print "head is attached to current branch: " + str(repo_status['current_branch'])
+            print "head is at commit: " + str(repo_status["head"])
 
+
+def _branch(new_branch_name):
+    """ Create a new branch with the supplied name.
+    The new branch will point to whatever head points right now.
+    """
+
+    assert new_branch_name is not None
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("creating new branch: " + str(new_branch_name) + "\nrepo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
+    except UVSErrorTamperDetected as e:
+        print e.message
+        sys.exit(1)
+
+    #
+    uvsmgr.create_new_branch(new_branch_name=new_branch_name, set_current_branch=False)
 
 
 
@@ -243,6 +281,7 @@ def _parse_cmdline():
 
     parser.add_argument("-m", "--message", help="commit message")
     parser.add_argument("-c", "--cid", help="commit id")
+    parser.add_argument("-n", "--name", help="branch name.")
     args = parser.parse_args()
 
     # print type(args) returns  <class 'argparse.Namespace'>
@@ -281,7 +320,14 @@ def _parse_cmdline():
         _checkout(cid=cid)
 
     elif 'branch' == args.subcmd1:
-        print "Not Yet Implemented"
+        log.cliv(">>>> branch sub command called.")
+
+        new_branch_name = args.name
+        if None == new_branch_name:
+            print "Error: No branch name supplied. please supply a branch name (-n or --name)"
+            sys.exit(2)
+
+        _branch(new_branch_name=new_branch_name)
 
     elif 'merge' == args.subcmd1:
         print "Not Yet Implemented"

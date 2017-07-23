@@ -35,12 +35,9 @@ SHADOW_FOLDER_NAME = '.uvs_shadow'
 
 SHADOW_DB_FILE_NAME = 'uvs.db'
 
-# this folder may contain information that helps the edvcs do its job and is not part of the source
-# but they are not in ciphertext and not to be ever pushed to the cloud.
-#
-# Ideally it should be lazily generated and regenerated if its deleted by the user ,
-# but we are in early alpha stage, so i cant guarantee that is how it will be used.
-CACHE_FOLDER_NAME = '.uvs_cache'
+# temp folder. used in merging and other operations. Generally its lazily generated when needed and can be
+# safely deleted except when in the middle of an operation.
+TEMP_DIR_NAME = '.uvs_temp'
 
 
 
