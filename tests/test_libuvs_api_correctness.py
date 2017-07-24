@@ -215,10 +215,10 @@ class TestUVS(unittest.TestCase):
                 tree_id_2 = uvsmgr.compute_tree_id_for_directory(repo_root_member_path)
                 tree_id_3 = uvsmgr.compute_tree_id_for_directory(repo_root_member_path)
 
-                print "found repo root subdir at path: " + repo_root_member_path + " its tree id: "
-                print tree_id_1
-                print tree_id_2
-                print tree_id_3
+                # print "found repo root subdir at path: " + repo_root_member_path + " its tree id: "
+                # print tree_id_1
+                # print tree_id_2
+                # print tree_id_3
 
                 self.assertEquals(tree_id_1, tree_id_2)
                 self.assertEquals(tree_id_2, tree_id_3)
@@ -250,7 +250,7 @@ class TestUVS(unittest.TestCase):
 
 
         # ---------------- now checkout last commit
-        uvsmgr.checkout_snapshot(snapid=snapid, clear_dest=True)
+        uvsmgr.checkout_reference_at_repo_root(snapshot_ref=snapid, clear_dest=True)
 
 
         # ---------------- now check to see if we recovered correctly.

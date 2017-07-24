@@ -73,12 +73,24 @@ def _checkout(cid):
         print e.message
         sys.exit(1)
 
+    result = None
     try:
-        uvsmgr.checkout_snapshot(snapid=cid, clear_dest=True)
+        result = uvsmgr.checkout_reference_at_repo_root(snapshot_ref=cid, clear_dest=True)
     except UVSError as e:
         print e.message
         sys.exit(1)
 
+    if result and result['op_failed']:
+        print "operation failed"
+        if result.has_key('op_failed_desc'):
+            print "cause: " + str(result['op_failed_desc'])
+    else:
+        print "successfully checked out: " + str(cid)
+        if result.has_key("detached_head") and result['detached_head']:
+            print "head is in detached state."
+
+        if result.has_key("head_attached_to") :
+            print "head is attached to: " + str(result['head_attached_to'])
 
 
 
@@ -122,9 +134,9 @@ def _commit(commit_msg):
 
     snapid = uvsmgr.take_snapshot(snapshot_msg=commit_msg, author_name="n/a", author_email="n/a")
 
-    print "commit (snapshot) successfully created. commit id (snapid) is: " + str(snapid)
+    print "commit (snapshot) successfully created. commit id (snapid) is: \n" + str(snapid)
 
-def _log_commits():
+def _log_all_commits():
     """ Show a list of all commits in this repo. """
 
 
@@ -264,7 +276,15 @@ def _branch(new_branch_name):
         sys.exit(1)
 
     #
-    uvsmgr.create_new_branch(new_branch_name=new_branch_name, set_current_branch=False)
+    result = uvsmgr.create_new_branch(new_branch_name=new_branch_name, set_current_branch=False)
+
+    if result and result['op_failed']:
+        print "operation failed"
+        if result.has_key('op_failed_desc'):
+            print "cause: " + str(result['op_failed_desc'])
+    else:
+        print 'successfully created branch: ' + str(new_branch_name)
+
 
 
 
@@ -277,7 +297,7 @@ def _parse_cmdline():
     parser = argparse.ArgumentParser(description=desc_msg)
 
     parser.add_argument("subcmd1", help="what should uvs do",
-                        choices=['init', 'status', 'log', 'commit', 'checkout', 'branch', 'merge'])
+                        choices=['init', 'status', 'log-all', 'commit', 'checkout', 'branch', 'merge'])
 
     parser.add_argument("-m", "--message", help="commit message")
     parser.add_argument("-c", "--cid", help="commit id")
@@ -295,9 +315,9 @@ def _parse_cmdline():
         log.cliv(">>>> status sub command called.")
         _show_status()
 
-    elif 'log' == args.subcmd1:
-        log.cliv(">>>> log sub command called.")
-        _log_commits()
+    elif 'log-all' == args.subcmd1:
+        log.cliv(">>>> log-all sub command called.")
+        _log_all_commits()
 
     elif 'commit' == args.subcmd1:
         log.cliv(">>>> commit sub command called.")

@@ -256,6 +256,7 @@ class UVSManager(object):
         """ Given a path to a file store it in the dao, and return the file id (file fingerprint). .
         """
 
+        # TODO break this into smaller segments.
         curr_file_bytes = open(file_path, 'rb').read()
         curr_file_fp = self._crypt_helper.get_uvsfp(curr_file_bytes)
         curr_file_ct = self._crypt_helper.encrypt_bytes(curr_file_bytes)
@@ -270,6 +271,8 @@ class UVSManager(object):
 
         finfo_ct = self._crypt_helper.encrypt_bytes(message=finfo)
 
+        # careful, file fingerprint must be the fingerprint of the file content, not the fp of finfo dict
+        # otherwise we, wouldn't be able to ask "have i seen this file before" type questions.
         self._dao.add_file(fid=curr_file_fp, finfo=finfo_ct)
 
         return curr_file_fp
@@ -747,6 +750,16 @@ class UVSManager(object):
 
         log.uvsmgr("checking working directory for un-committed changes. repo root: " + str(self._repo_root_path))
 
+        result = {}
+
+        if 'head' == new_branch_name.lower():
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'It does not make sense to create a branch called head.'
+            return result
+
+        # TODO also look at snapshots table.
+        # its crazy to create a branch whose name is the commit id of some other
+        # commit.
 
         # first fetch the main_refs_doc
         main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
@@ -809,6 +822,8 @@ class UVSManager(object):
 
         self._dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=new_main_refs_ct)
 
+        result['op_failed'] = False
+        return result
 
 
     def list_all_snapshots(self):
@@ -909,6 +924,9 @@ class UVSManager(object):
         """ Given a tree id, and dest directory, this method will checkout the contents of this tree node
         into destination directory, and recursively call itself for any sub trees that might exist. """
 
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
 
         tree_info_ct = self._dao.get_tree(tid)
 
@@ -939,34 +957,186 @@ class UVSManager(object):
             self._recursively_checkout_tree(tid=tree_id, dest_dir_path=new_tree_path)
 
 
+    # TODO add support here to check out tags as well branch names.
+    # that is after adding tags to uvs
+    def checkout_reference_at_repo_root(self, snapshot_ref, clear_dest=True):
+        """
+         Given a valid reference (snapshot id or branch name) check out the given reference
+         set the contents of the repository root to whatever that snapshot has.
+
+         if clear_dest is set, all files at the repo root (except uvs internal files) will be replaced, even those
+         not under version control (i.e. uvsignore files). Otherwise only files that exist in the snapshot will
+         be overwritten and restored to what they were at the time the snapshot was taken.
 
 
-
-    def checkout_snapshot(self, snapid, clear_dest=True):
-        """ Given a valid snapshot id, set the content of working directory to the image of the repository
-        at the time this snapshot id was taken.
-
-         By default it will just overwrite the files that collide with this checkout. if clear_dest is set
-         to True it will delete everything at destination except uvs internal files/folders.
+        :param snapshot_ref: an snapshot reference. either a snapshot id (checked first) or branch name.
+        :param clear_dest:
+        :return:
         """
 
-        assert isinstance(clear_dest, bool)
-        assert snapid is not None
-        assert self._repo_root_path is not None
-        assert isinstance(snapid, str) or isinstance(snapid, bytes)
 
-        # on windows path names are usually unicode, this might cause problems, be careful.
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+        assert self._repo_root_path is not None
+
+
+        assert clear_dest is not None
+        assert isinstance(clear_dest, bool)
+
+        assert snapshot_ref is not None
+        assert isinstance(snapshot_ref, str) or isinstance(snapshot_ref, unicode)
+
+        assert os.path.isdir(self._repo_root_path)
+
+        log.uvsmgr("Checking out to repo root. Check out reference is:" + str(snapshot_ref))
+
+        result = {}
+
+        # if not check to see if there is a branch with this name
+        main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
+
+        main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
+
+        main_refs_doc = json.loads(main_refs_doc_serial)
+
+        if (main_refs_doc is  None):
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path)
+            return result
+
+        # First see if this snapshot_ref is a snapshot id
+        # get the snapshot, if we got something other than none, then snapshot does exist.
+        if self._dao.get_snapshot(snapid=snapshot_ref) is not None:
+
+            # if snapshot_ref was a key in the snapshots table, this is a snapid (commit id)
+            self.checkout_snapshot_bare(snapid=snapshot_ref, dest_dirpath=self._repo_root_path)
+
+            # the user just did a checkout with a commit id, head should be detached.
+            assert main_refs_doc.has_key('head')
+
+            main_refs_doc['head']['state'] = HeadState.DETACHED
+            main_refs_doc['head']['snapid'] = snapshot_ref
+            main_refs_doc['head']['branch_handle'] = None
+
+            result['op_failed'] = False
+            result['detached_head'] = True
+
+
+        # next handle snapshot_ref == 'head' or 'Head' or 'HEAD' separately,
+        # the user could have said, uvs checkout head hoping to  discard his changes and check out last commit.
+        # in git however this action would require -f option, for example if status says we have some changes
+        # that we want to discard, one could say
+        # $ git checkout -f HEAD
+        # its sorta equivalent to saying $ git stash + $ git stash drop
+        elif 'head' == snapshot_ref:
+
+            # get head snap id, direct or indirect
+            current_head_snapid = None
+
+            if main_refs_doc['head']['state'] == HeadState.ATTACHED:
+                assert main_refs_doc['head']['snapid'] is None
+                assert main_refs_doc['head']['branch_handle'] is not None
+
+                # follow current branch's handle to get a snapid of repo head.
+                current_branch = main_refs_doc['head']['branch_handle']
+                current_head_snapid = main_refs_doc[current_branch]
+
+                result['detached_head'] = False
+                result['head_attached_to'] = current_branch
+
+            elif main_refs_doc['head']['state'] == HeadState.DETACHED:
+                assert main_refs_doc['head']['snapid'] is not None
+                assert main_refs_doc['head']['branch_handle'] is None
+
+                current_head_snapid = main_refs_doc['head']['snapid']
+                result['detached_head'] = True
+
+
+            self.checkout_snapshot_bare(snapid=current_head_snapid, dest_dirpath=self._repo_root_path)
+
+            result['op_failed'] = False
+            # head did not change in this case, if it was detached it should still be detached, if it was
+            # attached to a branch (say master) it should still be attached to it.
+            # not sure if we need tp tell user something like, you are still detached, or you are still on master
+            # but included in result anyway.
+
+        elif snapshot_ref in main_refs_doc:
+            self.checkout_snapshot_bare(snapid=main_refs_doc[snapshot_ref], dest_dirpath=self._repo_root_path)
+
+            # now update references.
+            # the user just did a checkout with a ref (like master), head should be attached to master now.
+            main_refs_doc['head']['state'] = HeadState.ATTACHED
+            main_refs_doc['head']['snapid'] = None
+            main_refs_doc['head']['branch_handle'] = snapshot_ref
+
+            result['op_failed'] = False
+            result['detached_head'] = False
+            result['head_attached_to'] = snapshot_ref
+
+        elif False:
+            pass
+            # TODO maybe also check to see if there is a tag with this reference. (later when we add tags)
+
+        else:
+            result['op_failed'] = True
+            result['op_failed_desc'] = "Invalid reference: " + str(snapshot_ref)
+            return result
+
+
+        # now save the main refs
+        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+        new_main_refs_ct = self._crypt_helper.encrypt_bytes(new_main_refs_serialized)
+        self._dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=new_main_refs_ct)
+
+        return result
+
+
+
+
+
+    def checkout_snapshot_bare(self, snapid, dest_dirpath, clear_dest=True):
+        """ Given a valid snapshot id, set the content of the directory identified by dest_dirpath to the
+        image of the repository at the time this snapshot id was taken.
+
+        By default it will just overwrite the files that collide with this checkout. if clear_dest is set
+        to True it will delete everything at destination except uvs internal files/folders.
+
+        this is the bare version of checkout. It will just write the snapshot to destination, without updating
+        any references i.e. changing head or anything else. As far repository history and internal data structures
+        are concerned this is a nullipotent operation.
+        """
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        assert clear_dest is not None
+        assert isinstance(clear_dest, bool)
+
+        assert snapid is not None
+
+        # on windows path names are usually unicode, be careful.
         assert isinstance(snapid, str) or isinstance(snapid, unicode)
 
-        if not os.path.isdir(self._repo_root_path):
-            raise uvs_errors.UVSErrorInvalidDestinationDirectory("repo root dir does not exist or i cant write to.")
+        assert dest_dirpath is not None
+        assert isinstance(dest_dirpath, str) or isinstance(snapid, unicode)
+
+
+        log.uvsmgr("bare checking out, snapshot id: " + str(snapid) + "\nTo directory at: " + str(dest_dirpath))
+
+
+        # TODO if path does not exist try to create it  ignoring all errors
+
+        # now check again to see if it does exist or not. if still does not exist, i cant proceed. error
+
+        if not os.path.isdir(dest_dirpath):
+            raise uvs_errors.UVSError("Invalid destination directory.")
 
         # TODO: i think we should not remove files that are not version controlled.
         # study git's behavior on this.
         if clear_dest:
 
-            repo_root_members = os.listdir(self._repo_root_path)
-            log.uvsmgr("clearing repo root, repo root members: " + repr(repo_root_members))
+            dest_members = os.listdir(dest_dirpath)
+            log.uvsmgr("clearing destination directory: all destination members: " + repr(dest_members))
 
             actual_paths_to_remove = []
 
@@ -975,12 +1145,12 @@ class UVSManager(object):
             dont_remove.add(sdef.SHADOW_FOLDER_NAME)
             dont_remove.add(sdef.SHADOW_DB_FILE_NAME)
 
-            for repo_root_member in repo_root_members:
-                if repo_root_member not in dont_remove:
-                    actual_paths_to_remove.append(os.path.join(self._repo_root_path, repo_root_member))
+            for dest_member in dest_members:
+                if dest_member not in dont_remove:
+                    actual_paths_to_remove.append(os.path.join(dest_dirpath, dest_member))
 
 
-            log.uvsmgr("clearing repo root for new checkout, removing: " + repr(actual_paths_to_remove))
+            log.uvsmgr("clearing destination directory: dest members to be removed: " + repr(actual_paths_to_remove))
 
             for path in actual_paths_to_remove:
                 if os.path.isdir(path):
@@ -998,7 +1168,7 @@ class UVSManager(object):
         snapshot_info_ct = self._dao.get_snapshot(snapid=snapid)
 
         if snapshot_info_ct is None:
-            raise UVSErrorInvalidSnapshot("Could not find that snapshot id.")
+            raise UVSError("Could not find an snapshot with id: " + str(snapid))
 
         snapshot_info_serial = self._crypt_helper.decrypt_bytes(ct=snapshot_info_ct)
 
@@ -1011,15 +1181,16 @@ class UVSManager(object):
                 or ('author_name' not in snapshot_info) or ('author_email' not in snapshot_info):
             raise UVSErrorInvalidSnapshot("Snapshot json does not contain all expected keys.")
 
+        # TODO this should be MAC failed
         if snapid != snapshot_info['verify_snapid']:
             raise UVSErrorTamperDetected('Detected data structure tampering. Perhaps some1 tried to reorder snapshots')
 
 
-        root_tid = snapshot_info['root']
+        snapshot_root_tid = snapshot_info['root']
 
-        log.uvsmgrv("root tid is: " + str(root_tid))
+        log.uvsmgrv("snapshot root tid is: " + str(snapshot_root_tid))
 
-        self._recursively_checkout_tree(tid=root_tid, dest_dir_path=self._repo_root_path)
+        self._recursively_checkout_tree(tid=snapshot_root_tid, dest_dir_path=dest_dirpath)
 
 
 
