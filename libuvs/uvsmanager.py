@@ -757,19 +757,33 @@ class UVSManager(object):
             result['op_failed_desc'] = 'It does not make sense to create a branch called head.'
             return result
 
-        # TODO also look at snapshots table.
-        # its crazy to create a branch whose name is the commit id of some other
-        # commit.
+        # Now look at snapshots table.
+        # its crazy to create a branch whose name is the commit id of some other commit.
+        # try to get snapshot, if we got something other than none, then snapshot does exist.
+        if self._dao.get_snapshot(snapid=new_branch_name) is not None:
+            result['op_failed'] = True
+            result['op_failed_desc'] = "It makes no sense to create a branch with the name of an existing commit. \n"
+            result['op_failed_desc'] += "you supplied branch name: " + str(new_branch_name)
+            return result
 
-        # first fetch the main_refs_doc
+
+        # check to see if there already is a branch with this name. in that case return error, branch already exists.
         main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
 
         main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
 
         main_refs_doc = json.loads(main_refs_doc_serial)
 
-        if (main_refs_doc is None) or ('head' not in main_refs_doc):
-            raise UVSErrorInvalidRepository("Error: head does not exist. Are you sure this is a uvs repository.")
+        if (main_refs_doc is  None) or ('head' not in main_refs_doc):
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path)
+            return result
+
+
+        if main_refs_doc.has_key(new_branch_name):
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'That branch already exists. you supplied: ' + str(new_branch_name)
+            return result
 
 
         assert main_refs_doc['head'].has_key('state')
