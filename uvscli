@@ -41,10 +41,10 @@ def _init_new_repo():
     uvsmanager.init_new_uvs_repo_overwrite(repo_pass=user_pass, repo_root_path=cwd)
 
 
-def _checkout(cid):
-    """ checkout the snapshot with the given commit id (snapshot id) """
+def _checkout(commit_ref):
+    """ checkout the snapshot with the given commit reference (which can be commit id or branch name) """
 
-    assert cid is not None
+    assert commit_ref is not None
 
     # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
     # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
@@ -75,7 +75,7 @@ def _checkout(cid):
 
     result = None
     try:
-        result = uvsmgr.checkout_reference_at_repo_root(snapshot_ref=cid, clear_dest=True)
+        result = uvsmgr.checkout_reference_at_repo_root(snapshot_ref=commit_ref, clear_dest=True)
     except UVSError as e:
         print e.message
         sys.exit(1)
@@ -85,7 +85,7 @@ def _checkout(cid):
         if result.has_key('op_failed_desc'):
             print "cause: " + str(result['op_failed_desc'])
     else:
-        print "successfully checked out: " + str(cid)
+        print "successfully checked out: " + str(commit_ref)
         if result.has_key("detached_head") and result['detached_head']:
             print "head is in detached state."
 
@@ -300,7 +300,7 @@ def _parse_cmdline():
                         choices=['init', 'status', 'log-all', 'commit', 'checkout', 'branch', 'merge'])
 
     parser.add_argument("-m", "--message", help="commit message")
-    parser.add_argument("-c", "--cid", help="commit id")
+    parser.add_argument("-r", "--ref", help="commit reference, either a commit id or branch name")
     parser.add_argument("-n", "--name", help="branch name.")
     args = parser.parse_args()
 
@@ -332,12 +332,12 @@ def _parse_cmdline():
     elif 'checkout' == args.subcmd1:
         log.cliv(">>>> checkout sub command called.")
 
-        cid = args.cid
-        if None == cid:
-            print "commit id (-c or --cid) is required."
+        commit_ref = args.ref
+        if None == commit_ref:
+            print "commit reference (-r or --ref) is required."
             sys.exit(2)
 
-        _checkout(cid=cid)
+        _checkout(commit_ref=commit_ref)
 
     elif 'branch' == args.subcmd1:
         log.cliv(">>>> branch sub command called.")
