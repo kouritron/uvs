@@ -278,12 +278,68 @@ def _branch(new_branch_name):
     #
     result = uvsmgr.create_new_branch(new_branch_name=new_branch_name, set_current_branch=False)
 
-    if result and result['op_failed']:
+    if result is None:
+        print "Operation failed with nil return"
+
+    if result['op_failed']:
         print "operation failed"
         if result.has_key('op_failed_desc'):
             print "cause: " + str(result['op_failed_desc'])
     else:
         print 'successfully created branch: ' + str(new_branch_name)
+
+
+def _show_all_refs():
+    """ Print all branch names found in the repository.
+     TODO: add tags support here as well later when libuvs does. """
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_show_all_refs() called. repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
+    except UVSErrorTamperDetected as e:
+        print e.message
+        sys.exit(1)
+
+    #
+    result = uvsmgr.list_all_refs()
+
+    if result is None:
+        print "Operation failed with nil return"
+
+
+    if result['op_failed']:
+        print "operation failed"
+        if result.has_key('op_failed_desc'):
+            print "cause: " + str(result['op_failed_desc'])
+    else:
+
+        print 'Here are the references: \n'
+        print 'head'.ljust(12) + " : " + str(result['refs']['head'])
+
+        for k, v in result['refs'].items():
+            if 'head' != k.lower():
+                print str(k).ljust(12) + " : " + str(v)
+
 
 
 
@@ -297,7 +353,7 @@ def _parse_cmdline():
     parser = argparse.ArgumentParser(description=desc_msg)
 
     parser.add_argument("subcmd1", help="what should uvs do",
-                        choices=['init', 'status', 'log-all', 'commit', 'checkout', 'branch', 'merge'])
+                        choices=['init', 'status', 'log-all', 'commit', 'checkout', 'branch', 'merge', 'show-refs'])
 
     parser.add_argument("-m", "--message", help="commit message")
     parser.add_argument("-r", "--ref", help="commit reference, either a commit id or branch name")
@@ -318,6 +374,10 @@ def _parse_cmdline():
     elif 'log-all' == args.subcmd1:
         log.cliv(">>>> log-all sub command called.")
         _log_all_commits()
+
+    elif 'show-refs' == args.subcmd1:
+        log.cliv(">>>> show-refs sub command called.")
+        _show_all_refs()
 
     elif 'commit' == args.subcmd1:
         log.cliv(">>>> commit sub command called.")

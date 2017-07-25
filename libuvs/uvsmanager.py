@@ -840,6 +840,73 @@ class UVSManager(object):
         return result
 
 
+
+    def list_all_refs(self):
+        """ Compute and return of all refs in this repository.
+        this list includes head, branches.
+        TODO in the future when tags are supported add that in as well.
+
+        """
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+
+        log.uvsmgr("list_all_refs() called.")
+
+        result = {}
+        result['op_failed'] = False
+
+
+        # get the refs doc.
+        main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
+
+        main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
+
+        main_refs_doc = json.loads(main_refs_doc_serial)
+
+        if (main_refs_doc is None) or ('head' not in main_refs_doc):
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path)
+            return result
+
+        assert main_refs_doc['head'].has_key('state')
+        assert main_refs_doc['head'].has_key('snapid')
+        assert main_refs_doc['head'].has_key('branch_handle')
+
+        result['refs'] = {}
+
+        # add all branch names
+        for ref_key, ref_val in main_refs_doc.items():
+            if "head" != ref_key:
+                result['refs'][ref_key] = ref_val
+
+
+        # add head, (dont de-reference head handle, let head just say master if its attached to master.)
+        if main_refs_doc['head']['state'] == HeadState.ATTACHED:
+            assert main_refs_doc['head']['snapid'] is None
+            assert main_refs_doc['head']['branch_handle'] is not None
+
+            current_branch = main_refs_doc['head']['branch_handle']
+            log.uvsmgrv("Head is attached to branch: " + str(current_branch))
+
+            # assert that current branch name actually is the branch name of a valid branch.
+            assert main_refs_doc.has_key(current_branch)
+
+            result['refs']['head'] = current_branch
+
+
+        elif main_refs_doc['head']['state'] == HeadState.DETACHED:
+            assert main_refs_doc['head']['snapid'] is not None
+            assert main_refs_doc['head']['branch_handle'] is None
+
+            log.uvsmgrv("Repo is in detached head state.")
+            result['refs']['head'] = main_refs_doc['head']['snapid']
+
+
+        return result
+
+
     def list_all_snapshots(self):
         """ Compute and return a list of all snapshots. this is a list of tuples like this:
          <snapid, commit msg, author name, author email>
