@@ -931,9 +931,12 @@ class UVSManager(object):
         return result_snapshots
 
 
-    # TODO define how the root node and graph are returned
     def get_inverted_history_dag(self):
         """ Compute and return the history dag with the parent pointers reversed to kid pointers.
+
+        If operation fails, the result dict will have 'op_failed' set to True
+        if operation succeeds, result['dag_root'] will have the snapid of the first commit in the repo (inv dag root)
+        result['dag_adjacencies'] will have a set of snapids, that are the kids of that node in the DAG.
         """
 
         assert self._dao is not None
@@ -966,6 +969,10 @@ class UVSManager(object):
 
 
         for snapid, snapinfo_json_ct in snapshots:
+
+            # if this node has not been seen before, create an empty adj list for it.
+            if not inverted_dag_adjacencies.has_key(snapid):
+                inverted_dag_adjacencies[snapid] = []
 
             snapinfo_json_pt = self._crypt_helper.decrypt_bytes(ct=bytes(snapinfo_json_ct))
 
