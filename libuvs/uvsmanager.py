@@ -925,10 +925,95 @@ class UVSManager(object):
 
             result_row = [snapid, snapinfo_dict['msg'], snapinfo_dict['author_name'], snapinfo_dict['author_email']]
 
-            log.uvsmgr("snapshot: " + str(result_row))
+            log.uvsmgrv("snapshot: " + str(result_row))
             result_snapshots.append(result_row)
 
         return result_snapshots
+
+
+    # TODO define how the root node and graph are returned
+    def get_inverted_history_dag(self):
+        """ Compute and return the history dag with the parent pointers reversed to kid pointers.
+        """
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        log.uvsmgrv("get_inverted_history_dag() called. Computing inverted dag.")
+
+        result = {}
+        result['op_failed'] = False
+
+
+        # lets implement an adjacency list as a dict of < node, [list of neighbors] >
+        inverted_dag_adjacencies = {}
+
+        inverted_dag_root_snapid = None
+
+        # get all snapshots. each snapshot should have a pointer to its parent(s).
+        # there should only be one snapshot with no parents, that is the initial commit.
+        # you can assert that here if u want.
+
+        snapshots = self._dao.get_all_snapshots()
+
+        if (snapshots is None) or (0 == len(snapshots)):
+
+            log.uvsmgr("No snapshots found in this repo, can't really give you an inverted dag.")
+
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'there are no commits in this repository'
+            return result
+
+
+        for snapid, snapinfo_json_ct in snapshots:
+
+            snapinfo_json_pt = self._crypt_helper.decrypt_bytes(ct=bytes(snapinfo_json_ct))
+
+            parents = json.loads(snapinfo_json_pt)['parents']
+
+            assert isinstance(parents, list)
+
+            # no parent means, initial commit, 1 parent means regular commit, 2 parents means a merge commit.
+            # i dont think we should allow such a thing as a commit with 3 or 4 or 5 parents. If we allowed
+            # it there could be massive complications when it comes to finding common ancestor for 3 way merge
+            # i can't think of a dvcs operation that requires a commit with more than 2 parents.
+            num_parents = len(parents)
+
+            assert num_parents <= 2, "Found a snapshot with more than 2 parents, this should not have happened."
+
+            # if parent_list is an empty list, this is the initial commit.
+            if (0 == num_parents):
+
+                # there should only be one root commit. we must not find more than one snapshot
+                # with zero parents
+                assert inverted_dag_root_snapid is None
+
+                inverted_dag_root_snapid = snapid
+
+            else:
+
+                # there is at most 2 parents
+                for parent in parents:
+
+                    # now we have a inverted pointer from parent (parent) to kid (snapid)
+                    # if this node has not been seen before, create an empty adj list for it.
+                    if not inverted_dag_adjacencies.has_key(parent):
+                        inverted_dag_adjacencies[parent] = []
+
+                    # now there is an adj list for this node, either empty just created or existing one from
+                    # another snapshot. either case just add a pointer to the kid. (note a node can have many kids)
+                    inverted_dag_adjacencies[parent].append(snapid)
+
+
+        # now we have root of the inverted DAG and the adj list
+        result['dag_root'] = inverted_dag_root_snapid
+        result['dag_adjacencies'] = inverted_dag_adjacencies
+
+        return result
+
+
+
+
 
 
     def _checkout_file(self, fname, fid, dest_dir_path):
