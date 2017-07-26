@@ -332,10 +332,10 @@ def _show_inverted_dag():
             print "cause: " + str(result['op_failed_desc'])
     else:
         # result['dag_root'] is the snapid of repo root.
-        # result['dag_adjacencies'] is a dict of <parent snapid, [set of kid snapids] >
-        print '>>> Here is the inverted DAG (parent to kid):'
-        print '>>> inverted DAG root:' + str(result['dag_root']) + '\n'
-        print '>>> inverted DAG adjacencies: '
+        # result['dag_adjacencies'] is a dict of <parent snapid, [list of kid snapids] >
+        print '>>>>>>>> Here is the inverted DAG (parent to kid):'
+        print 'inverted DAG root:' + str(result['dag_root'])
+        print 'inverted DAG adjacencies: '
 
         print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
 

@@ -35,6 +35,10 @@ _DISABLE_LOG_CLASS_UVSMGR = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_UVSMGRV = _DISABLE_ALL_LOGS or True
 
 
+# history DAG related msgs
+_DISABLE_LOG_CLASS_DAG = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_DAGV = _DISABLE_ALL_LOGS or True
+
 
 # the 1 appears to make it bold, color is after that
 term_red   = "\033[1;31m"
@@ -326,3 +330,36 @@ def uvsmgrv(msg, label=True):
 
     print term_light_blue + final_msg + term_reset
 
+
+#-----------------------------------------------------------------------------------------------------------------------
+def dag(msg, label=True):
+    """ print DAG related log msgs. """
+
+    if _DISABLE_LOG_CLASS_DAG:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'DAG: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_green + final_msg + term_reset
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+def dagv(msg, label=True):
+    """ print the verbose DAG related log msgs. """
+
+    if _DISABLE_LOG_CLASS_DAGV:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'DAG verbose: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_green + final_msg + term_reset
