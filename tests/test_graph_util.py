@@ -61,6 +61,45 @@ class TestGraphUtil(unittest.TestCase):
         cls.dag1 = gu.DAG(dag1_adjacencies)
 
 
+        # weird Graph
+        weird_adjacencies = {}
+
+        weird_adjacencies['1'] = []
+        weird_adjacencies['2'] = ['1']
+        weird_adjacencies['3'] = ['2']
+        weird_adjacencies['4'] = ['3']
+        weird_adjacencies['5'] = ['4', '1']
+        #weird_adjacencies['5'] = ['1', '4']
+        weird_adjacencies['6'] = ['2']
+
+        cls.weird_dag = gu.DAG(weird_adjacencies)
+
+
+        # X pattern Graph
+        x_pattern_adjacencies = {}
+
+        x_pattern_adjacencies['1'] = []
+        x_pattern_adjacencies['2'] = ['1']
+        x_pattern_adjacencies['3'] = ['1']
+
+        x_pattern_adjacencies['4'] = ['2', '3']
+        x_pattern_adjacencies['5'] = ['3', '2']
+
+        # x_pattern_adjacencies['4'] = ['3', '2']
+        # x_pattern_adjacencies['5'] = ['2', '3']
+        #
+        # x_pattern_adjacencies['4'] = ['3', '2']
+        # x_pattern_adjacencies['5'] = ['3', '2']
+        #
+        # x_pattern_adjacencies['4'] = ['2', '3']
+        # x_pattern_adjacencies['5'] = ['2', '3']
+
+
+
+        cls.x_pattern_dag = gu.DAG(x_pattern_adjacencies)
+
+
+
 
 
     @classmethod
@@ -79,6 +118,48 @@ class TestGraphUtil(unittest.TestCase):
     # tearDown will run once after every test case
     def tearDown(self):
         pass
+
+
+    # TODO figure out what to do in the x pattern case,
+    # i dont think this really makes sense as something that would come up in anything but abusive usage of dvcs
+    # but needs further study
+    def test_x_pattern_eca(self):
+
+        print 'test_x_pattern_eca'
+
+        ref1 = '4'
+        ref2 = '5'
+
+        print '(ref1, ref2): ' + str(ref1) + ", " + str(ref2)
+
+        print "slow(ref1, ref2): " + str(gu.dag_find_eca_slow(self.x_pattern_dag, node1=ref1, node2=ref2))
+        print "slow(ref2, ref1): " + str(gu.dag_find_eca_slow(self.x_pattern_dag, node1=ref2, node2=ref1))
+
+        print "fast(ref1, ref2): " + str(gu.dag_find_eca_fast(self.x_pattern_dag, node1=ref1, node2=ref2))
+        print "fast(ref2, ref1): " + str(gu.dag_find_eca_fast(self.x_pattern_dag, node1=ref2, node2=ref1))
+
+
+    # TODO study this case,
+    # i believe our merge engine needs to employ some heuristics to find the best merge base
+    # i dont think there is a concrete definition for 'earliest common ancestor' that will provide
+    # the best merge base always.
+    def test_weird_eca(self):
+
+        print 'test_weird_eca'
+
+        ref1 = '5'
+        ref2 = '6'
+
+        print '(ref1, ref2): ' + str(ref1) + ", " + str(ref2)
+
+        print "slow(ref1, ref2): " + str(gu.dag_find_eca_slow(self.weird_dag, node1=ref1, node2=ref2))
+        print "slow(ref2, ref1): " + str(gu.dag_find_eca_slow(self.weird_dag, node1=ref2, node2=ref1))
+
+        print "fast(ref1, ref2): " + str(gu.dag_find_eca_fast(self.weird_dag, node1=ref1, node2=ref2))
+        print "fast(ref2, ref1): " + str(gu.dag_find_eca_fast(self.weird_dag, node1=ref2, node2=ref1))
+
+
+
 
     def test_dag_eca(self):
 
@@ -119,7 +200,7 @@ class TestGraphUtil(unittest.TestCase):
 
         # now get the counter
         slow_cost = self.dag1.get_lookup_count()
-        print "the slow algo made: " + str(slow_cost) + " many look ups"
+        print "the slow algo made: " + str(slow_cost) + " look ups"
 
         self.dag1.reset_lookup_count()
         for test_case in test_cases:
@@ -135,7 +216,7 @@ class TestGraphUtil(unittest.TestCase):
 
         # now get the counter
         fast_cost = self.dag1.get_lookup_count()
-        print "the fast algo made: " + str(fast_cost) + " many look ups"
+        print "the fast algo made: " + str(fast_cost) + " look ups"
 
 
     def test_inv_dag_is_descendant_of_search(self):
