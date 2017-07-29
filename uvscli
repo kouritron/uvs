@@ -340,6 +340,53 @@ def _show_inverted_dag():
         print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
 
 
+def _merge(branch_to_merge_from):
+
+    assert branch_to_merge_from is not None
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_merge() called. branch_to_merge_from: " + str(branch_to_merge_from) + " repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
+    except UVSErrorTamperDetected as e:
+        print e.message
+        sys.exit(1)
+
+    #
+    result = uvsmgr.merge(branch_to_merge_from=branch_to_merge_from)
+
+    if result is None:
+        print "merge failed with nil return"
+
+    if result['op_failed']:
+        print "operation failed"
+        if result.has_key('op_failed_desc'):
+            print "cause: " + str(result['op_failed_desc'])
+    elif result['fast_forwarded']:
+        print str(branch_to_merge_from) + 'is a direct descendant. fast forwarding current branch.'
+        print "merge complete"
+
+
+
+
 
 def _show_all_refs():
     """ Print all branch names found in the repository.
@@ -467,7 +514,14 @@ def _parse_cmdline():
         _branch(new_branch_name=new_branch_name)
 
     elif 'merge' == args.subcmd1:
-        print "Not Yet Implemented"
+        log.cliv(">>>> merge sub command called.")
+
+        branch_to_merge_from = args.name
+        if None == branch_to_merge_from:
+            print "Error: No branch name supplied. please supply a branch name (-n or --name) to merge changes from"
+            sys.exit(2)
+
+        _merge(branch_to_merge_from=branch_to_merge_from)
 
 
 

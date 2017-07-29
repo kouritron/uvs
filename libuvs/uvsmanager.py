@@ -1019,6 +1019,51 @@ class UVSManager(object):
         return result
 
 
+    def merge(self, branch_to_merge_from):
+        """ """
+
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+
+        log.uvsmgr("merge() called.")
+
+        result = {}
+        result['op_failed'] = False
+
+
+        # get the refs doc.
+        main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
+
+        main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
+
+        main_refs_doc = json.loads(main_refs_doc_serial)
+
+        if (main_refs_doc is None) or ('head' not in main_refs_doc):
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path)
+            return result
+
+        assert main_refs_doc['head'].has_key('state')
+        assert main_refs_doc['head'].has_key('snapid')
+        assert main_refs_doc['head'].has_key('branch_handle')
+
+
+        inv_dag_result = self.get_inverted_history_dag()
+        inv_dag = None
+
+        if inv_dag_result['op_failed']:
+            result['op_failed'] = True
+            result['op_failed_desc'] = inv_dag_result['op_failed_desc']
+            return result
+        else:
+            inv_dag = inv_dag_result['refs']
+
+        # get inv dag
+        # check to see if direct desan
+
+
 
 
 
