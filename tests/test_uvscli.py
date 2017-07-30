@@ -47,22 +47,6 @@ class TestUVSCli(unittest.TestCase):
         print "repo root path: " + cls.repo_root_path
         print "repo root cksums file: " + cls.repo_root_cksums_file
 
-        # delete previous test repo if it existed.
-        cls.remove_test_repo()
-
-        print "creating test uvs repo at: " + cls.repo_root_path
-
-        # make and populate the repo root ith some random dirs and files to
-        # be treated as a test uvs repository.
-        # tu.populate_directory_with_random_files_and_subdirs(dirpath=cls.repo_root_path)
-
-        # tu.populate_directory_with_random_files_and_subdirs(dirpath=cls.repo_root_path)
-
-
-        # now save md5 of what we created.
-        # cmd = "find " + cls.repo_root_path
-        # cmd += " -type f -print0 | xargs -0 md5sum > " + cls.repo_root_cksums_file
-        # subprocess.call(cmd, shell=True)
 
     @classmethod
     def tearDownClass(cls):
@@ -126,10 +110,75 @@ class TestUVSCli(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_cli_init_then_make_one_commit_then_recover(self):
+
+    def test_cli_init_twice_wont_overwrite(self):
+
+        # delete previous test repo if it existed.
+        self.remove_test_repo()
 
         if not os.path.exists(self.repo_root_path):
             os.makedirs(self.repo_root_path)
+
+        test_pass = '123'
+
+        init_cmd = ['uvscli', 'init']
+
+        p = subprocess.Popen(init_cmd, stdin=subprocess.PIPE, cwd=self.repo_root_path)
+
+        p.stdin.write(test_pass)
+        p.stdin.close()
+
+        # wait for process to terminate, note that wait is not safe to call
+        # if we had set stdout or stderr to PIPE as well as stdin.
+        exit_code = p.wait()
+
+
+        print "$ " + str(init_cmd[0]) + " " + str(init_cmd[1]) + "\nexit code: " + str(exit_code)
+
+        self.assertEquals(exit_code, 0)
+
+        # -------------------------------------------------------------------------- init again check exit code.
+
+        p = subprocess.Popen(init_cmd, stdin=subprocess.PIPE, cwd=self.repo_root_path)
+
+        p.stdin.write(test_pass)
+        p.stdin.close()
+
+        # wait for process to terminate, note that wait is not safe to call
+        # if we had set stdout or stderr to PIPE as well as stdin.
+        exit_code = p.wait()
+
+        result = "# doing it 2nd time. it should not be allowed. expect non-zero exit code.\n$ " + str(init_cmd[0])
+        result += " " + str(init_cmd[1]) + "\nexit code: " + str(exit_code)
+        print result
+
+        self.assertNotEquals(exit_code, 0)
+
+
+
+    def test_cli_init_then_make_one_commit_then_recover(self):
+
+
+        # delete previous test repo if it existed.
+        self.remove_test_repo()
+
+        # this should a folder called ignoreme resident on the same location where this file (test_uvscli.py) resides
+        print "creating test uvs repo at: " + self.repo_root_path
+
+        if not os.path.exists(self.repo_root_path):
+            os.makedirs(self.repo_root_path)
+
+        # make and populate the repo root ith some random dirs and files to
+        # be treated as a test uvs repository.
+        tu.populate_directory_with_random_files_and_subdirs(dirpath=self.repo_root_path)
+
+        # now save md5 of what we created.
+        cmd = "find " + self.repo_root_path
+        cmd += " -type f -print0 | xargs -0 md5sum > " + self.repo_root_cksums_file
+        subprocess.call(cmd, shell=True)
+
+        # ---------------------------------------------------------------------------- Repo ready to go
+
 
         test_pass = '123'
 
@@ -146,9 +195,11 @@ class TestUVSCli(unittest.TestCase):
         # as well as stdin.
         exit_code = p.wait()
 
-        # self.assertEquals(check_cmd_exit_code, 0)
 
         print "$ " + str(init_cmd[0]) + " " + str(init_cmd[1]) + "\nexit code: " + str(exit_code)
+
+        self.assertEquals(exit_code, 0)
+
 
 
         # TODO delete the files and check them back out again then verify using md5
