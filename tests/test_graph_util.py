@@ -125,7 +125,8 @@ class TestGraphUtil(unittest.TestCase):
     # but needs further study
     def test_x_pattern_eca(self):
 
-        print 'test_x_pattern_eca'
+        print "--------------------------------------------------"
+        print 'test_x_pattern_eca()'
 
         ref1 = '4'
         ref2 = '5'
@@ -138,12 +139,18 @@ class TestGraphUtil(unittest.TestCase):
         print "fast(ref1, ref2): " + str(gu.dag_find_eca_fast(self.x_pattern_dag, node1=ref1, node2=ref2))
         print "fast(ref2, ref1): " + str(gu.dag_find_eca_fast(self.x_pattern_dag, node1=ref2, node2=ref1))
 
+        print "fast(ref1, ref2): " + str(gu.dag_find_eca_three_color(self.x_pattern_dag, node_1=ref1, node_2=ref2))
+        print "fast(ref2, ref1): " + str(gu.dag_find_eca_three_color(self.x_pattern_dag, node_1=ref2, node_2=ref1))
+
 
     # TODO study this case,
     # i believe our merge engine needs to employ some heuristics to find the best merge base
     # i dont think there is a concrete definition for 'earliest common ancestor' that will provide
     # the best merge base always.
     def test_weird_eca(self):
+
+        print "--------------------------------------------------"
+        print "test_weird_eca()"
 
         print 'test_weird_eca'
 
@@ -158,10 +165,15 @@ class TestGraphUtil(unittest.TestCase):
         print "fast(ref1, ref2): " + str(gu.dag_find_eca_fast(self.weird_dag, node1=ref1, node2=ref2))
         print "fast(ref2, ref1): " + str(gu.dag_find_eca_fast(self.weird_dag, node1=ref2, node2=ref1))
 
+        print "3-color(ref1, ref2): " + str(gu.dag_find_eca_three_color(self.weird_dag, node_1=ref1, node_2=ref2))
+        print "3-color(ref2, ref1): " + str(gu.dag_find_eca_three_color(self.weird_dag, node_1=ref2, node_2=ref1))
 
 
 
     def test_dag_eca(self):
+
+        print "--------------------------------------------------"
+        print "test_dag_eca()"
 
         test_cases = []
 
@@ -221,6 +233,9 @@ class TestGraphUtil(unittest.TestCase):
 
     def test_inv_dag_is_descendant_of_search(self):
 
+        print "--------------------------------------------------"
+        print "test_inv_dag_is_descendant_of_search()"
+
         # every node is descendant of root
         self.assertTrue(gu.inv_dag_is_descendant_of(dag=self.invdag1, parent='n1', node_to_test='n2'))
         self.assertTrue(gu.inv_dag_is_descendant_of(dag=self.invdag1, parent='n1', node_to_test='n3'))
@@ -257,6 +272,146 @@ class TestGraphUtil(unittest.TestCase):
 
         self.assertFalse(gu.inv_dag_is_descendant_of(dag=self.invdag1, node_to_test='n3', parent='n10'))
         self.assertFalse(gu.inv_dag_is_descendant_of(dag=self.invdag1, node_to_test='n22', parent='n4'))
+
+
+    def test_bfs_visit_2(self):
+
+        print "--------------------------------------------------"
+        print "test_bfs_visit_2()"
+
+        # sample graph,
+        graph = {}
+
+        graph['1'] = []
+        graph['2'] = ['1']
+        graph['3'] = ['1', '2']
+
+        # not a valid vcs dag, but still a dag and worth testing
+        graph['4'] = ['1', '2', '3']
+        graph['5'] = ['4']
+        graph['6'] = ['5']
+
+        dag = gu.DAG(graph)
+
+        actual_visit_order = []
+
+        def test_visit_callback(node):
+            actual_visit_order.append(node)
+
+        start_ref = '6'
+
+        # set to allow one or the other node be visited at that stage
+        expected_visit_order = [{'6'}, {'5'}, {'4'}, {'1', '2', '3'}, {'1', '2', '3'}, {'1', '2', '3'}]
+
+        gu.bfs_visit(dag=dag, start=start_ref, visit_callback=test_visit_callback)
+
+        print "start_ref: " + str(start_ref)
+        print "visit order: " + str(actual_visit_order)
+
+        self.assertTrue(len(expected_visit_order), len(actual_visit_order))
+
+        for i in range(0, len(expected_visit_order)):
+            self.assertTrue(actual_visit_order[i] in expected_visit_order[i])
+
+            # also assert that no node was visited 2 times or more.
+            # print str(type(actual_visit_order[i])) + ": " + str(actual_visit_order[i])
+            # print "should not be in: "
+            # print "rest: " + str(set(actual_visit_order[i+1:]))
+            self.assertTrue(actual_visit_order[i] not in set(actual_visit_order[i + 1:]))
+
+
+        # ---------------------------------------- another test on the same graph:
+        start_ref = '3'
+
+        # set to allow one or the other node be visited at that stage
+        expected_visit_order = [{'3'}, {'1', '2'}, {'1', '2'}]
+
+        actual_visit_order = []
+
+        gu.bfs_visit(dag=dag, start=start_ref, visit_callback=test_visit_callback)
+
+        print "start_ref: " + str(start_ref)
+        print "visit order: " + str(actual_visit_order)
+
+        self.assertTrue(len(expected_visit_order), len(actual_visit_order))
+
+        for i in range(0, len(expected_visit_order)):
+            self.assertTrue(actual_visit_order[i] in expected_visit_order[i])
+
+            # also assert that no node was visited 2 times or more.
+            self.assertTrue(actual_visit_order[i] not in set(actual_visit_order[i + 1:]))
+
+
+    def test_bfs_visit_1(self):
+
+        print "--------------------------------------------------"
+        print "test_bfs_visit_1()"
+
+        # sample graph
+        graph = {}
+
+        graph['1'] = []
+        graph['2'] = ['1']
+        graph['3'] = ['1']
+
+        graph['4'] = ['2', '3']
+        graph['5'] = ['3', '2']
+        graph['6'] = ['4', '5']
+
+        dag = gu.DAG(graph)
+
+        actual_visit_order = []
+
+        def test_visit_callback(node):
+            actual_visit_order.append(node)
+
+        start_ref = '6'
+
+        # set to allow one or the other node be visited at that stage
+        expected_visit_order = [{'6'}, {'4', '5'}, {'4', '5'}, {'2', '3'}, {'2', '3'}, {'1'}]
+
+        gu.bfs_visit(dag=dag, start=start_ref, visit_callback=test_visit_callback)
+
+        print "start_ref: " + str(start_ref)
+        print "visit order: " + str(actual_visit_order)
+
+        self.assertTrue(len(expected_visit_order), len(actual_visit_order))
+
+        for i in range(0, len(expected_visit_order)):
+
+            self.assertTrue(actual_visit_order[i] in expected_visit_order[i])
+
+            # also assert that no node was visited 2 times or more.
+            # print str(type(actual_visit_order[i])) + ": " + str(actual_visit_order[i])
+            # print "should not be in: "
+            # print "rest: " + str(set(actual_visit_order[i+1:]))
+            self.assertTrue(actual_visit_order[i] not in set(actual_visit_order[i+1:]))
+
+
+
+
+        # ---------------------------------------- another test on the same graph:
+        start_ref = '5'
+
+        # set to allow one or the other node be visited at that stage
+        expected_visit_order = [{'5'}, {'2', '3'}, {'2', '3'}, {'1'}]
+
+        actual_visit_order = []
+
+        gu.bfs_visit(dag=dag, start=start_ref, visit_callback=test_visit_callback)
+
+        print "start_ref: " + str(start_ref)
+        print "visit order: " + str(actual_visit_order)
+
+        self.assertTrue(len(expected_visit_order), len(actual_visit_order))
+
+        for i in range(0, len(expected_visit_order)):
+            self.assertTrue(actual_visit_order[i] in expected_visit_order[i])
+
+            # also assert that no node was visited 2 times or more.
+            self.assertTrue(actual_visit_order[i] not in set(actual_visit_order[i + 1:]))
+
+
 
 
 if __name__ == '__main__':
