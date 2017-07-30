@@ -20,7 +20,7 @@ import libuvs.systemdefaults as sdef
 from libuvs import uvsmanager
 
 
-class TestUVS(unittest.TestCase):
+class TestLibUVS_API(unittest.TestCase):
 
 
     repo_root_path = None
@@ -30,7 +30,7 @@ class TestUVS(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        super(TestUVS, cls).setUpClass()
+        super(TestLibUVS_API, cls).setUpClass()
 
         cwd = os.getcwd()
         print "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> setUpClass() called from cwd: " + str(cwd)
@@ -64,7 +64,7 @@ class TestUVS(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestUVS, cls).tearDownClass()
+        super(TestLibUVS_API, cls).tearDownClass()
         print "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> tearDownClass() called"
 
         #cls.remove_test_repo()
@@ -188,9 +188,9 @@ class TestUVS(unittest.TestCase):
         root_tid_2 = uvsmgr.compute_repo_root_tree_id()
         root_tid_3 = uvsmgr.compute_repo_root_tree_id()
 
-        print "repo root tid_1: " + str(root_tid_1)
-        print "repo root tid_2: " + str(root_tid_2)
-        print "repo root tid_3: " + str(root_tid_3)
+        # print "repo root tid_1: " + str(root_tid_1)
+        # print "repo root tid_2: " + str(root_tid_2)
+        # print "repo root tid_3: " + str(root_tid_3)
 
         # check that every time we got the same thing.
         self.assertEquals(root_tid_1, root_tid_2)
