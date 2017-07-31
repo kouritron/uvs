@@ -15,6 +15,7 @@ import uvs_errors
 import dal_psql
 import dal_blackhole
 import dal_sqlite
+import graph_util
 from uvs_errors import *
 
 
@@ -930,20 +931,119 @@ class UVSManager(object):
 
         return result_snapshots
 
-    def list_reachable_snapshots_for_custom_snapid(self):
+    def list_reachable_snapshots_for_custom_snapid(self, start_snapid):
 
         # TODO model this after list all snapshots, bfs visit, to get all snapshots
         # that are reachable from head
-        pass
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        log.uvsmgr("list_reachable_snapshots_for_custom_snapid() called. search start snapid: " + str(start_snapid))
+
+        result = {}
+        result['op_failed'] = False
+
+        # TODO: get the dag, if failed return
+        get_dag_result = self.get_history_dag()
+        if get_dag_result['op_failed']:
+            result['op_failed'] = True
+            result['op_failed_desc'] = get_dag_result['op_failed_desc']
+            return result
+
+        dag_adj = get_dag_result['dag_adjacencies']
+
+        dag = graph_util.DAG(dag_adj)
+
+        bfs_order_reachable_nodes = graph_util.get_list_of_bfs_order_nodes(dag=dag, start=start_snapid)
+
+
+        result['snapshots'] = []
+
+        for next_snapid in bfs_order_reachable_nodes:
+
+            snapinfo_ct = self._dao.get_snapshot(next_snapid)
+
+            assert snapinfo_ct is not None
+
+            snapinfo_serial = self._crypt_helper.decrypt_bytes(ct=snapinfo_ct)
+
+            log.uvsmgr("snapshot decrypted: " + str(snapinfo_serial))
+
+            snapinfo = json.loads(snapinfo_serial)
+
+            log_record = [next_snapid, snapinfo['msg'], snapinfo['author_name'], snapinfo['author_email']]
+
+            result['snapshots'].append(log_record)
+
+        return result
+
 
 
     def list_reachable_snapshots_from_head(self):
+        """ Compute and return the list of snapshots that are reachable from head.
 
-        # TODO model this after list all snapshots,
-        # dereference head, get its snapid
-        # return use list_reachable_snapshots_for_custom_snapid(head_snapid)
+        the return is a result dict.
+        the result has 'op_failed' and 'op_failed_desc' keys for failure
+        on success it has:
 
-        pass
+        result['snapshots'] >>>>> this is a list of tuples like this:
+        <snapid, commit msg, author name, author email>
+
+        The list is ordered, first item (0 == idx) is head snapshot,
+        then comes snapshots that are one edge removed from head (in bfs order) then 2 edge, and so on.
+         """
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        log.uvsmgr("list_reachable_snapshots_from_head() called.")
+
+        result = {}
+        result['op_failed'] = False
+
+        # get the refs doc.
+        main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
+
+        main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
+
+        main_refs_doc = json.loads(main_refs_doc_serial)
+
+        if (main_refs_doc is None) or ('head' not in main_refs_doc):
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path)
+            return result
+
+        assert main_refs_doc['head'].has_key('state')
+        assert main_refs_doc['head'].has_key('snapid')
+        assert main_refs_doc['head'].has_key('branch_handle')
+
+        # get head snapid
+        head_snapid = None
+
+        if main_refs_doc['head']['state'] == HeadState.ATTACHED:
+            assert main_refs_doc['head']['snapid'] is None
+            assert main_refs_doc['head']['branch_handle'] is not None
+
+            current_branch = main_refs_doc['head']['branch_handle']
+
+            log.uvsmgrv("Head is attached to branch: " + str(current_branch))
+
+            # assert that current branch name actually is the branch name of a valid branch.
+            assert main_refs_doc.has_key(current_branch)
+
+            head_snapid = main_refs_doc[current_branch]
+
+
+        elif main_refs_doc['head']['state'] == HeadState.DETACHED:
+            assert main_refs_doc['head']['snapid'] is not None
+            assert main_refs_doc['head']['branch_handle'] is None
+
+            log.uvsmgrv("Repo is in detached head state.")
+            head_snapid = main_refs_doc['head']['snapid']
+
+        # if we didnt fail, let some1 else get the result.
+        return  self.list_reachable_snapshots_for_custom_snapid(start_snapid=head_snapid)
 
 
     def get_history_dag(self):
@@ -953,7 +1053,6 @@ class UVSManager(object):
         if operation succeeds, result['dag_adjacencies'] will have the DAG as an adjacency list.
 
         dict of <str snapid, [list of neighbors, parents in this case]>
-
         """
 
         assert self._dao is not None
@@ -1005,8 +1104,6 @@ class UVSManager(object):
         result['dag_adjacencies'] = dag_adjacencies
 
         return result
-
-
 
 
     def get_inverted_history_dag(self):

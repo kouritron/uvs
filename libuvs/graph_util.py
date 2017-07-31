@@ -244,7 +244,24 @@ def bfs_visit(dag, start, visit_callback):
                 visit_scheduled.add(neighbor)
 
 
+def get_list_of_bfs_order_nodes(dag, start):
+    """ Given a dag, compute and return an ordered list (bfs order) nodes that would be
+    seen if a bfs search was started on the dag from the given start node.
+    """
 
+    assert isinstance(dag, DAG)
+
+    assert isinstance(start, str) or isinstance(start, unicode)
+    assert dag.has_node(start)
+
+    result = []
+
+    def visit_node(node):
+        result.append(node)
+
+    bfs_visit(dag=dag, start=start, visit_callback=visit_node)
+
+    return result
 
 
 def dag_find_eca_three_color(dag, node_1, node_2):
@@ -329,6 +346,13 @@ def dag_find_eca_three_color(dag, node_1, node_2):
     return eca_candidate.difference(eca_denied)
 
 
+def dag_is_descendant_of(dag, parent, node_to_test):
+    """ Given a regular DAG (graph with kid to parent pointers), return True if node_to_test is
+    a descendant of parent. False otherwise.
+    """
+
+
+    pass
 
 
 def inv_dag_is_descendant_of(dag, parent, node_to_test):

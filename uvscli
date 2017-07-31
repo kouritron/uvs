@@ -137,6 +137,7 @@ def _commit(commit_msg):
 
     print "commit (snapshot) successfully created. commit id (snapid) is: \n" + str(snapid)
 
+
 def _log_all_commits():
     """ Show a list of all commits in this repo. """
 
@@ -177,11 +178,65 @@ def _log_all_commits():
     all_snapshots = uvsmgr.list_all_snapshots()
 
 
-    print "uvs log: found these snapshots:"
+    print ">>> uvs log: found these snapshots:"
     for snapid, msg, name, email in all_snapshots:
         print "commit id: " + str(snapid)
         print "author name: " + str(name) + " email: " + str(email) + " commit msg: " + str(msg) + "\n\n"
 
+def _log_commits():
+    """ Show the list of commits, that are reachable from head. """
+
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_log_commits called. repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass , repo_root_path=cwd)
+    except UVSErrorTamperDetected as e:
+        print e.message
+        sys.exit(1)
+
+    # TODO handle the case where there might be 700k commits in the repo (show them 100 at a time or something)
+    # right now we just print everything.
+
+    # if operation does not fail, inside result['snapshots'] i am expecting a list of tuples like this;
+    # <snapid, commit msg, author name, author email>
+    result = uvsmgr.list_reachable_snapshots_from_head()
+
+    if result is None:
+        print "log commits reachable from head failed with nil return"
+
+    if result['op_failed']:
+        print "operation failed"
+        if result.has_key('op_failed_desc'):
+            print "cause: " + str(result['op_failed_desc'])
+
+    else:
+        print ">>> uvs log: found these snapshots: "
+
+        for snapid, msg, name, email in result['snapshots']:
+
+            print "commit id: " + str(snapid)
+            print "author name: " + str(name) + " email: " + str(email) + " commit msg: " + str(msg) + "\n\n"
 
 
 def _show_status():
@@ -501,8 +556,8 @@ def _parse_cmdline():
     parser = argparse.ArgumentParser(description=desc_msg)
 
     parser.add_argument("subcmd1", help="what should uvs do",
-                        choices=['init', 'status', 'log-all', 'commit', 'checkout', 'branch', 'merge', 'show-refs',
-                                 'dbg-inv-dag', 'dbg-dag'])
+                        choices=['init', 'status', 'log-all', 'log', 'commit', 'checkout', 'branch',
+                                 'merge', 'show-refs', 'dbg-inv-dag', 'dbg-dag'])
 
     parser.add_argument("-m", "--message", help="commit message")
     parser.add_argument("-r", "--ref", help="commit reference, either a commit id or branch name")
@@ -523,6 +578,10 @@ def _parse_cmdline():
     elif 'log-all' == args.subcmd1:
         log.cliv(">>>> log-all sub command called.")
         _log_all_commits()
+
+    elif 'log' == args.subcmd1:
+        log.cliv(">>>> log sub command called.")
+        _log_commits()
 
     elif 'show-refs' == args.subcmd1:
         log.cliv(">>>> show-refs sub command called.")

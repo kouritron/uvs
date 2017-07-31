@@ -273,6 +273,47 @@ class TestGraphUtil(unittest.TestCase):
         self.assertFalse(gu.inv_dag_is_descendant_of(dag=self.invdag1, node_to_test='n3', parent='n10'))
         self.assertFalse(gu.inv_dag_is_descendant_of(dag=self.invdag1, node_to_test='n22', parent='n4'))
 
+    def test_get_bfs_array(self):
+
+
+        print "--------------------------------------------------"
+        print "test_get_bfs_array()"
+
+        # sample graph,
+        graph = {}
+
+        graph['1'] = []
+        graph['2'] = ['1']
+        graph['3'] = ['1', '2']
+
+        # not a valid vcs dag, but still a dag and worth testing
+        graph['4'] = ['1', '2', '3']
+        graph['5'] = ['4']
+        graph['6'] = ['5']
+
+        dag = gu.DAG(graph)
+
+        start_ref = '6'
+
+        # set to allow one or the other node be visited at that stage
+        expected_visit_order = [{'6'}, {'5'}, {'4'}, {'1', '2', '3'}, {'1', '2', '3'}, {'1', '2', '3'}]
+
+        bfs_ordered_nodes = gu.get_list_of_bfs_order_nodes(dag=dag, start=start_ref)
+
+        print "start_ref: " + str(start_ref)
+        print "visit order: " + str(bfs_ordered_nodes)
+
+        self.assertTrue(len(expected_visit_order), len(bfs_ordered_nodes))
+
+        for i in range(0, len(expected_visit_order)):
+
+            # assert items are in expected order
+            self.assertTrue(bfs_ordered_nodes[i] in expected_visit_order[i])
+
+            # assert no repetitions occurred.
+            self.assertTrue(bfs_ordered_nodes[i] not in set(bfs_ordered_nodes[i + 1:]))
+
+
 
     def test_bfs_visit_2(self):
 
