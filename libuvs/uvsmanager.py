@@ -930,6 +930,84 @@ class UVSManager(object):
 
         return result_snapshots
 
+    def list_reachable_snapshots_for_custom_snapid(self):
+
+        # TODO model this after list all snapshots, bfs visit, to get all snapshots
+        # that are reachable from head
+        pass
+
+
+    def list_reachable_snapshots_from_head(self):
+
+        # TODO model this after list all snapshots,
+        # dereference head, get its snapid
+        # return use list_reachable_snapshots_for_custom_snapid(head_snapid)
+
+        pass
+
+
+    def get_history_dag(self):
+        """ Compute and return the history dag (regular dag, kids point to parents).
+
+        If operation fails, the result dict will have 'op_failed' set to True
+        if operation succeeds, result['dag_adjacencies'] will have the DAG as an adjacency list.
+
+        dict of <str snapid, [list of neighbors, parents in this case]>
+
+        """
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        log.uvsmgrv("get_history_dag() called.")
+
+        result = {}
+        result['op_failed'] = False
+
+        # dict of <str snapid, [list of neighbors, parents in this case]>
+        dag_adjacencies = {}
+
+        snapshots = self._dao.get_all_snapshots()
+
+        if (snapshots is None) or (0 == len(snapshots)):
+
+            log.uvsmgr("No snapshots found in this repo, can't really give you a dag.")
+
+            result['op_failed'] = True
+            result['op_failed_desc'] = 'there are no commits in this repository'
+            return result
+
+        for snapid, snapinfo_json_ct in snapshots:
+
+            # if this node has not been seen before, create an empty adj list for it.
+            if not dag_adjacencies.has_key(snapid):
+                dag_adjacencies[snapid] = []
+
+            snapinfo_json_pt = self._crypt_helper.decrypt_bytes(ct=bytes(snapinfo_json_ct))
+
+            parents = json.loads(snapinfo_json_pt)['parents']
+
+            assert isinstance(parents, list)
+
+            # no parent means, initial commit, 1 parent means regular commit, 2 parents means a merge commit.
+            # i dont think we should allow such a thing as a commit with 3 or 4 or 5 parents. If we allowed
+            # it there could be massive complications when it comes to finding common ancestor for 3 way merge
+            # i can't think of a dvcs operation that requires a commit with more than 2 parents.
+            num_parents = len(parents)
+
+            assert num_parents <= 2, "Found a snapshot with more than 2 parents, this should not have happened."
+
+            #
+            for parent in parents:
+                dag_adjacencies[snapid].append(parent)
+
+
+        result['dag_adjacencies'] = dag_adjacencies
+
+        return result
+
+
+
 
     def get_inverted_history_dag(self):
         """ Compute and return the history dag with the parent pointers reversed to kid pointers.

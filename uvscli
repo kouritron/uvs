@@ -290,7 +290,7 @@ def _branch(new_branch_name):
         print 'successfully created branch: ' + str(new_branch_name)
 
 
-def _show_inverted_dag():
+def _dbg_show_inverted_dag():
     """ Print the history DAG of this repository with parent pointers inverted to kid pointers. """
 
 
@@ -299,7 +299,7 @@ def _show_inverted_dag():
     # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
     cwd = os.getcwd()
 
-    log.cli("_show_history_dag() called. repo root: " + cwd)
+    log.cli("_dbg_show_inverted_dag() called. repo root: " + cwd)
 
     # if this is a uvs repo uvs db files are here.
     shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
@@ -338,6 +338,55 @@ def _show_inverted_dag():
         print 'inverted DAG adjacencies: '
 
         print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
+
+
+def _dbg_show_dag():
+    """ Print the history DAG of this repository. """
+
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_dbg_show_dag() called. repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
+    except UVSErrorTamperDetected as e:
+        print e.message
+        sys.exit(1)
+
+    #
+    result = uvsmgr.get_history_dag()
+
+    if result is None:
+        print "Computing history dag failed with nil return"
+
+    if result['op_failed']:
+        print "operation failed"
+        if result.has_key('op_failed_desc'):
+            print "cause: " + str(result['op_failed_desc'])
+    else:
+        # result['dag_adjacencies'] is a dict of <snapid, [list of snapids of parents] >
+        print '>>>>>>>> Here is the DAG (kid to parent pointers):'
+        print 'DAG adjacencies: '
+
+        print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
+
 
 
 def _merge(branch_to_merge_from):
@@ -453,7 +502,7 @@ def _parse_cmdline():
 
     parser.add_argument("subcmd1", help="what should uvs do",
                         choices=['init', 'status', 'log-all', 'commit', 'checkout', 'branch', 'merge', 'show-refs',
-                                 'show-inv-dag'])
+                                 'dbg-inv-dag', 'dbg-dag'])
 
     parser.add_argument("-m", "--message", help="commit message")
     parser.add_argument("-r", "--ref", help="commit reference, either a commit id or branch name")
@@ -479,9 +528,13 @@ def _parse_cmdline():
         log.cliv(">>>> show-refs sub command called.")
         _show_all_refs()
 
-    elif 'show-inv-dag' == args.subcmd1:
-        log.cliv(">>>> show-inv-dag sub command called.")
-        _show_inverted_dag()
+    elif 'dbg-inv-dag' == args.subcmd1:
+        log.cliv(">>>> dbg-inv-dag sub command called.")
+        _dbg_show_inverted_dag()
+
+    elif 'dbg-dag' == args.subcmd1:
+        log.cliv(">>>> dbg-dag sub command called.")
+        _dbg_show_dag()
 
     elif 'commit' == args.subcmd1:
         log.cliv(">>>> commit sub command called.")
