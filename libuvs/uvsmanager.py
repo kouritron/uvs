@@ -1195,8 +1195,11 @@ class UVSManager(object):
 
 
     def merge(self, branch_to_merge_from):
-        """ """
+        """ Merge changes from the supplied branch name to current branch """
 
+        # the user ran something like:
+        # $ uvs merge -n br2
+        # meaning we want to merge the changes from br2 to current branch
 
         assert self._dao is not None
         assert self._crypt_helper is not None
@@ -1229,9 +1232,7 @@ class UVSManager(object):
         inv_dag = None
 
         if inv_dag_result['op_failed']:
-            result['op_failed'] = True
-            result['op_failed_desc'] = inv_dag_result['op_failed_desc']
-            return result
+            return inv_dag_result
         else:
             inv_dag = inv_dag_result['refs']
 
@@ -1385,7 +1386,6 @@ class UVSManager(object):
 
         result = {}
 
-        # if not check to see if there is a branch with this name
         main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
 
         main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
@@ -1402,7 +1402,7 @@ class UVSManager(object):
         if self._dao.get_snapshot(snapid=snapshot_ref) is not None:
 
             # if snapshot_ref was a key in the snapshots table, this is a snapid (commit id)
-            self.checkout_snapshot_bare(snapid=snapshot_ref, dest_dirpath=self._repo_root_path)
+            self.checkout_snapshot_bare(snapid=snapshot_ref, dest_dirpath=self._repo_root_path, clear_dest=clear_dest)
 
             # the user just did a checkout with a commit id, head should be detached.
             assert main_refs_doc.has_key('head')
@@ -1421,7 +1421,7 @@ class UVSManager(object):
         # that we want to discard, one could say
         # $ git checkout -f HEAD
         # its sorta equivalent to saying $ git stash + $ git stash drop
-        elif 'head' == snapshot_ref:
+        elif 'head' == snapshot_ref.lower():
 
             # get head snap id, direct or indirect
             current_head_snapid = None
@@ -1445,7 +1445,8 @@ class UVSManager(object):
                 result['detached_head'] = True
 
 
-            self.checkout_snapshot_bare(snapid=current_head_snapid, dest_dirpath=self._repo_root_path)
+            self.checkout_snapshot_bare(snapid=current_head_snapid, dest_dirpath=self._repo_root_path,
+                                        clear_dest=clear_dest)
 
             result['op_failed'] = False
             # head did not change in this case, if it was detached it should still be detached, if it was
@@ -1454,7 +1455,8 @@ class UVSManager(object):
             # but included in result anyway.
 
         elif snapshot_ref in main_refs_doc:
-            self.checkout_snapshot_bare(snapid=main_refs_doc[snapshot_ref], dest_dirpath=self._repo_root_path)
+            self.checkout_snapshot_bare(snapid=main_refs_doc[snapshot_ref], dest_dirpath=self._repo_root_path,
+                                        clear_dest=clear_dest)
 
             # now update references.
             # the user just did a checkout with a ref (like master), head should be attached to master now.

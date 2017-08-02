@@ -128,14 +128,19 @@ def _commit(commit_msg):
         print e.message
         sys.exit(1)
 
-    # TODO
     # check if working dir is clean
+    repo_status = uvsmgr.get_status()
 
+    # TODO: rethink the return value/exception mechanism.
 
+    if repo_status['working_dir_clean']:
+        print "Working directory is clean. Nothing to commit."
+        sys.exit(1)
 
     snapid = uvsmgr.take_snapshot(snapshot_msg=commit_msg, author_name="n/a", author_email="n/a")
 
-    print "commit (snapshot) successfully created. commit id (snapid) is: \n" + str(snapid)
+    # commit is the same thing as snapshot.
+    print "commit successfully created. commit id is: \n" + str(snapid)
 
 
 def _log_all_commits():
@@ -446,6 +451,11 @@ def _dbg_show_dag():
 
 def _merge(branch_to_merge_from):
 
+
+    # the user ran something like:
+    # $ uvs merge -n br2
+    # this means merge the changes from br2 to current branch
+
     assert branch_to_merge_from is not None
 
     # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
@@ -608,9 +618,10 @@ def _parse_cmdline():
     elif 'checkout' == args.subcmd1:
         log.cliv(">>>> checkout sub command called.")
 
+        # ref is either a branch name or commit id
         commit_ref = args.ref
         if None == commit_ref:
-            print "commit reference (-r or --ref) is required."
+            print "commit reference (-r or --ref) is required. ref is either a branch name or commit id."
             sys.exit(2)
 
         _checkout(commit_ref=commit_ref)
