@@ -16,6 +16,7 @@ import dal_psql
 import dal_blackhole
 import dal_sqlite
 import graph_util
+import automergeservice
 from uvs_errors import *
 
 
@@ -1194,7 +1195,7 @@ class UVSManager(object):
         return result
 
 
-    def merge(self, branch_to_merge_from):
+    def merge(self, mrg_src_branch):
         """ Merge changes from the supplied branch name to current branch """
 
         # the user ran something like:
@@ -1203,15 +1204,16 @@ class UVSManager(object):
 
         assert self._dao is not None
         assert self._crypt_helper is not None
+        assert self._repo_root_path is not None
 
+        assert isinstance(mrg_src_branch, str) or isinstance(mrg_src_branch, unicode)
 
         log.uvsmgr("merge() called.")
 
         result = {}
         result['op_failed'] = False
 
-
-        # get the refs doc.
+        # first we need to know current branch. fetch the main refs doc.
         main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
 
         main_refs_doc_serial = self._crypt_helper.decrypt_bytes(main_refs_doc_ct)
@@ -1223,21 +1225,112 @@ class UVSManager(object):
             result['op_failed_desc'] = 'Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path)
             return result
 
+        if mrg_src_branch not in main_refs_doc:
+            result['op_failed'] = True
+            result['op_failed_desc'] = "Merge failed. Can't find merge src branch: " + str(mrg_src_branch)
+            return result
+
         assert main_refs_doc['head'].has_key('state')
         assert main_refs_doc['head'].has_key('snapid')
         assert main_refs_doc['head'].has_key('branch_handle')
 
 
+        # merge source is the supplied argument,
+        # merge destination will be current branch.
+        # at the moment and maybe later as well, we dont support merging to a destination of detached head.
+        # TODO: study git behaviour on this, should we allow merges to detached head,
+        # and if so what should we do in that case
+
+        # this is current branch, after this operation head should point to this.
+        mrg_dst_branch_aka_curr_br = None
+
+        if main_refs_doc['head']['state'] == HeadState.DETACHED:
+
+            assert main_refs_doc['head']['snapid'] is not None
+            assert main_refs_doc['head']['branch_handle'] is None
+
+            result['op_failed'] = True
+            result['op_failed_desc'] = "Merging to a detached head is not supported. Switch to " \
+                                       "the branch you wish to merge to first. "
+            return result
+
+
+        elif main_refs_doc['head']['state'] == HeadState.ATTACHED:
+            assert main_refs_doc['head']['snapid'] is None
+            assert main_refs_doc['head']['branch_handle'] is not None
+
+            # follow current branch's handle to get a snapid of repo head.
+            mrg_dst_branch_aka_curr_br = main_refs_doc['head']['branch_handle']
+            assert mrg_dst_branch_aka_curr_br in main_refs_doc
+
+
+        # get inv dag and the dag
+        dag_result = self.get_history_dag()
         inv_dag_result = self.get_inverted_history_dag()
-        inv_dag = None
+
+        dag_adjacencies = None
+        inv_dag_adjacencies = None
 
         if inv_dag_result['op_failed']:
             return inv_dag_result
         else:
-            inv_dag = inv_dag_result['refs']
+            inv_dag_adjacencies = inv_dag_result['dag_adjacencies']
 
-        # get inv dag
-        # check to see if direct desan
+        if dag_result['op_failed']:
+            return dag_result
+        else:
+            dag_adjacencies = dag_result['dag_adjacencies']
+
+        #
+        dag = graph_util.DAG(graph_adjacencies=dag_adjacencies)
+        inv_dag = graph_util.DAG(graph_adjacencies=inv_dag_adjacencies)
+
+        # ok now we have, inv dag, we got, merge src and merge dst, several possibilities arise for merge.
+        # *** scenario 1: merge src, is an ancestor of merge dest.
+        #             In this case nothing to do, git prints "Already up-to-date."
+
+
+        case_1_temp = graph_util.inv_dag_is_descendant_of(invdag=inv_dag, parent=main_refs_doc[mrg_src_branch],
+                                            node_to_test=main_refs_doc[mrg_dst_branch_aka_curr_br])
+
+        if case_1_temp:
+            result['op_failed'] = False
+            result['merge_msg'] = "Already up-to-date."
+            return result
+
+
+        # *** scenario 2: merge dest, is an ancestor of merge src.
+        #             In this case just fast forward, meaning set the mrg_dst pointer to point to mrg_src
+
+        case_2_temp = graph_util.inv_dag_is_descendant_of(invdag=inv_dag,
+                                                          parent=main_refs_doc[mrg_dst_branch_aka_curr_br],
+                                                          node_to_test=main_refs_doc[mrg_src_branch])
+
+        if case_2_temp:
+
+            main_refs_doc['head']['state'] = HeadState.ATTACHED
+            main_refs_doc['head']['snapid'] = None
+            main_refs_doc['head']['branch_handle'] = mrg_dst_branch_aka_curr_br
+            main_refs_doc[mrg_dst_branch_aka_curr_br] = main_refs_doc[mrg_src_branch]
+
+            # now save the new main refs
+            new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+            new_main_refs_ct = self._crypt_helper.encrypt_bytes(new_main_refs_serialized)
+            self._dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=new_main_refs_ct)
+
+
+
+            result['op_failed'] = False
+            result['merge_msg'] = "Fast Forwarded.\nupdating " + str(mrg_dst_branch_aka_curr_br) + \
+                                  " to point to " + str(mrg_src_branch) + "\nThey are now both at commit: " + \
+                                  str(main_refs_doc[mrg_src_branch])
+            return result
+
+        # *** scenario 3: same as 2 but with -no-ff option set.
+        #             >> In this case create a new snapshot, with 2 parents, mrg src and dst.
+        #             >> use the repo root tree id of mrg_src for the new snapshot.
+
+        # maybe skip this case for now.
 
 
 

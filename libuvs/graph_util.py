@@ -355,19 +355,19 @@ def dag_is_descendant_of(dag, parent, node_to_test):
     pass
 
 
-def inv_dag_is_descendant_of(dag, parent, node_to_test):
+def inv_dag_is_descendant_of(invdag, parent, node_to_test):
     """ Given an inverted DAG (graph with parent to kid pointers), return True if node_to_test is
     a descendant of parent. False otherwise.
     """
 
-    assert isinstance(dag, DAG)
+    assert isinstance(invdag, DAG)
 
     # parent and node_to_test must be snapids as str or unicode.
     assert isinstance(parent, str) or isinstance(parent, unicode)
     assert isinstance(node_to_test, str) or isinstance(node_to_test, unicode)
 
-    assert dag.has_node(parent)
-    assert dag.has_node(node_to_test)
+    assert invdag.has_node(parent)
+    assert invdag.has_node(node_to_test)
 
     # it doesnt make sense to merge parent with itself, so this case should've been caught earlier. if in the future
     # this function was needed for something other than merging maybe remove this line.
@@ -390,7 +390,7 @@ def inv_dag_is_descendant_of(dag, parent, node_to_test):
         if current_node == node_to_test:
             return True
 
-        for kid in dag.get_neighbors(current_node):
+        for kid in invdag.get_neighbors(current_node):
 
             if kid not in prev_seen:
                 prev_seen.add(kid)
