@@ -958,18 +958,8 @@ class UVSManager(object):
         log.uvsmgr("list_reachable_snapshots_for_custom_snapid() called. search start snapid: " + str(start_snapid))
 
         result = {}
-        result['op_failed'] = False
 
-        # TODO: get the dag, if failed return
-        get_dag_result = self.get_history_dag()
-        if get_dag_result['op_failed']:
-            result['op_failed'] = True
-            result['op_failed_desc'] = get_dag_result['op_failed_desc']
-            return result
-
-        dag_adj = get_dag_result['dag_adjacencies']
-
-        dag = graph_util.DAG(dag_adj)
+        dag = graph_util.DAG(self.get_history_dag()['dag_adjacencies'])
 
         bfs_order_reachable_nodes = graph_util.get_list_of_bfs_order_nodes(dag=dag, start=start_snapid)
 
@@ -1077,7 +1067,6 @@ class UVSManager(object):
         log.uvsmgrv("get_history_dag() called.")
 
         result = {}
-        result['op_failed'] = False
 
         # dict of <str snapid, [list of neighbors, parents in this case]>
         dag_adjacencies = {}
@@ -1087,10 +1076,8 @@ class UVSManager(object):
         if (snapshots is None) or (0 == len(snapshots)):
 
             log.uvsmgr("No snapshots found in this repo, can't really give you a dag.")
+            raise UVSError('there are no commits in this repository')
 
-            result['op_failed'] = True
-            result['op_failed_desc'] = 'there are no commits in this repository'
-            return result
 
         for snapid, snapinfo_json_ct in snapshots:
 
@@ -1136,7 +1123,6 @@ class UVSManager(object):
         log.uvsmgrv("get_inverted_history_dag() called. Computing inverted dag.")
 
         result = {}
-        result['op_failed'] = False
 
 
         # lets implement an adjacency list as a dict of < node, [list of neighbors] >
@@ -1153,10 +1139,7 @@ class UVSManager(object):
         if (snapshots is None) or (0 == len(snapshots)):
 
             log.uvsmgr("No snapshots found in this repo, can't really give you an inverted dag.")
-
-            result['op_failed'] = True
-            result['op_failed_desc'] = 'there are no commits in this repository'
-            return result
+            raise UVSError('there are no commits in this repository')
 
 
         for snapid, snapinfo_json_ct in snapshots:
@@ -1226,7 +1209,6 @@ class UVSManager(object):
         log.uvsmgr("merge() called.")
 
         result = {}
-        result['op_failed'] = False
 
         # first we need to know current branch. fetch the main refs doc.
         main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
@@ -1236,14 +1218,10 @@ class UVSManager(object):
         main_refs_doc = json.loads(main_refs_doc_serial)
 
         if (main_refs_doc is None) or ('head' not in main_refs_doc):
-            result['op_failed'] = True
-            result['op_failed_desc'] = 'Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path)
-            return result
+            raise UVSError('Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path))
 
         if mrg_src_branch not in main_refs_doc:
-            result['op_failed'] = True
-            result['op_failed_desc'] = "Merge failed. Can't find merge src branch: " + str(mrg_src_branch)
-            return result
+            raise UVSError("Merge failed. Can't find merge src branch: " + str(mrg_src_branch))
 
         assert main_refs_doc['head'].has_key('state')
         assert main_refs_doc['head'].has_key('snapid')
@@ -1264,10 +1242,7 @@ class UVSManager(object):
             assert main_refs_doc['head']['snapid'] is not None
             assert main_refs_doc['head']['branch_handle'] is None
 
-            result['op_failed'] = True
-            result['op_failed_desc'] = "Merging to a detached head is not supported. Switch to " \
-                                       "the branch you wish to merge to first. "
-            return result
+            raise UVSError("Merging to a detached head is un-supported. Switch to a branch u wish to merge into first.")
 
 
         elif main_refs_doc['head']['state'] == HeadState.ATTACHED:
@@ -1279,26 +1254,14 @@ class UVSManager(object):
             assert mrg_dst_branch_aka_curr_br in main_refs_doc
 
 
-        # get inv dag and the dag
-        dag_result = self.get_history_dag()
-        inv_dag_result = self.get_inverted_history_dag()
+        # corner case1: what if user is on master branch and tried to merge master into master.
+        # return some kinda error
+        if mrg_src_branch == mrg_dst_branch_aka_curr_br:
+            raise UVSError("Can't merge a branch into itself.")
 
-        dag_adjacencies = None
-        inv_dag_adjacencies = None
 
-        if inv_dag_result['op_failed']:
-            return inv_dag_result
-        else:
-            inv_dag_adjacencies = inv_dag_result['dag_adjacencies']
-
-        if dag_result['op_failed']:
-            return dag_result
-        else:
-            dag_adjacencies = dag_result['dag_adjacencies']
-
-        #
-        dag = graph_util.DAG(graph_adjacencies=dag_adjacencies)
-        inv_dag = graph_util.DAG(graph_adjacencies=inv_dag_adjacencies)
+        dag = graph_util.DAG(graph_adjacencies=self.get_history_dag()['dag_adjacencies'])
+        inv_dag = graph_util.DAG(graph_adjacencies=self.get_inverted_history_dag()['dag_adjacencies'])
 
         # ok now we have, inv dag, we got, merge src and merge dst, several possibilities arise for merge.
         # *** scenario 1: merge src, is an ancestor of merge dest.
@@ -1309,7 +1272,6 @@ class UVSManager(object):
                                             node_to_test=main_refs_doc[mrg_dst_branch_aka_curr_br])
 
         if case_1_temp:
-            result['op_failed'] = False
             result['merge_msg'] = "Already up-to-date."
             return result
 
@@ -1334,8 +1296,6 @@ class UVSManager(object):
             self._dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=new_main_refs_ct)
 
 
-
-            result['op_failed'] = False
             result['merge_msg'] = "Fast Forwarded.\nupdating " + str(mrg_dst_branch_aka_curr_br) + \
                                   " to point to " + str(mrg_src_branch) + "\nThey are now both at commit: " + \
                                   str(main_refs_doc[mrg_src_branch])
@@ -1411,7 +1371,7 @@ class UVSManager(object):
 
         merge_s1_dirpath = os.path.join(merge_temp_dirpath, mrg_dst_branch_aka_curr_br)
         merge_s2_dirpath = os.path.join(merge_temp_dirpath, mrg_src_branch)
-        merge_ca_dirpath = os.path.join(merge_temp_dirpath, 'ca')
+        merge_ca_dirpath = os.path.join(merge_temp_dirpath, 'common_ancestor')
 
         # TODO move this name to init, and set it to a constant.
         merge_out_dirpath = os.path.join(merge_temp_dirpath, 'merge_result')
@@ -1438,14 +1398,17 @@ class UVSManager(object):
                                                        b_dirpath=merge_s2_dirpath, out_dirpath= merge_out_dirpath)
 
         if conflicts_found:
-            result['op_failed'] = False
+
+            # todo deal with this
+            # result['op_failed'] = False
             result['merge_msg'] = "conflicts found that require manual resolution. check .uvs_temp folder \n" \
                                   "make sure the merge_result folder has the final version that you want."
             return result
 
         else:
-            result['op_failed'] = False
-            result['merge_msg'] = "merged your files using the diff3 program. check merge_result under .uvs_temp"
+            # result['op_failed'] = False
+            result['merge_msg'] = "merged your files using the diff3 program. check merge_result subdir\n" \
+                                  "inside the repository temp folder: " + sdef.TEMP_DIR_NAME
             return result
 
 

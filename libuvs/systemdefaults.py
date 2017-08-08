@@ -37,7 +37,7 @@ SHADOW_DB_FILE_NAME = 'uvs.db'
 
 # temp folder. used in merging and other operations. Generally its lazily generated when needed and can be
 # safely deleted except when in the middle of an operation.
-TEMP_DIR_NAME = '.uvs_temp'
+TEMP_DIR_NAME = 'uvs_temp'
 
 
 

@@ -13,8 +13,6 @@ _DISABLE_ALL_LOGS = True
 _DISABLE_LOG_CLASS_HAZARD = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_V = _DISABLE_ALL_LOGS or False
 
-_DISABLE_LOG_CLASS_V = False
-
 _DISABLE_LOG_CLASS_VV = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_VVV = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_VVVV = _DISABLE_ALL_LOGS or True
@@ -41,6 +39,20 @@ _DISABLE_LOG_CLASS_UVSMGRV = _DISABLE_ALL_LOGS or True
 # history DAG related msgs
 _DISABLE_LOG_CLASS_DAG = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_DAGV = _DISABLE_ALL_LOGS or True
+
+# history DAG related msgs
+_DISABLE_LOG_CLASS_AMS = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_AMSV = _DISABLE_ALL_LOGS or True
+
+
+# re enable a couple temp ones:
+_DISABLE_LOG_CLASS_V = False
+
+# _DISABLE_LOG_CLASS_AMS = False
+
+
+
+
 
 
 # the 1 appears to make it bold, color is after that
@@ -362,6 +374,40 @@ def dagv(msg, label=True):
 
     if label:
         final_msg = 'DAG verbose: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_green + final_msg + term_reset
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+def ams(msg, label=True):
+    """ print Auto Merge Service related log msgs. """
+
+    if _DISABLE_LOG_CLASS_AMS:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'AMS: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_green + final_msg + term_reset
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+def amsv(msg, label=True):
+    """ print the verbose Auto Merge Service related log msgs. """
+
+    if _DISABLE_LOG_CLASS_AMSV:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'AMSV verbose: ' + str(msg)
     else:
         final_msg = str(msg)
 

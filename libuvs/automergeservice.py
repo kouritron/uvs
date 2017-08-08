@@ -4,7 +4,7 @@
 
 import os
 import subprocess
-
+import log
 
 def launch_gui_merge_tool(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
 
@@ -12,7 +12,8 @@ def launch_gui_merge_tool(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
     pass
 
 
-
+# TODO validate path names better
+# if a path name contanis space this may break, we need some os or other module to pre-process pathnames
 def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
 
     assert isinstance(base_dirpath, str) or isinstance(base_dirpath, unicode)
@@ -63,6 +64,8 @@ def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
         out_filepath = str(os.path.join(out_dirpath, filename))
 
         diff3_cmd = "diff3 " + s1_filepath + " " + ca_filepath + " " + s2_filepath + " -m > " + out_filepath
+        log.ams("diff3_cmd is: " + diff3_cmd)
+
 
         # call will return the exit code.
         blackhole = open(os.devnull, 'wb')

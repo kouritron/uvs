@@ -377,27 +377,32 @@ def _dbg_show_inverted_dag():
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
     except UVSErrorTamperDetected as e:
-        print e.message
+        # these are all valid ways of getting the exception msg:
+        # e.message
+        # e.args[0]
+        # str(e)
+
+        # .message is probably the worst/most deprecated way
+
+        # print e.args[0]
+        print str(e)
         sys.exit(1)
 
-    #
-    result = uvsmgr.get_inverted_history_dag()
+    try:
+        result = uvsmgr.get_inverted_history_dag()
+    except UVSError as e:
+        print "operation failed, cause: "
+        print str(e)
+        sys.exit(1)
 
-    if result is None:
-        print "Computing inverted history dag failed with nil return"
 
-    if result['op_failed']:
-        print "operation failed"
-        if result.has_key('op_failed_desc'):
-            print "cause: " + str(result['op_failed_desc'])
-    else:
-        # result['dag_root'] is the snapid of repo root.
-        # result['dag_adjacencies'] is a dict of <parent snapid, [list of kid snapids] >
-        print '>>>>>>>> Here is the inverted DAG (parent to kid):'
-        print 'inverted DAG root:' + str(result['dag_root'])
-        print 'inverted DAG adjacencies: '
+    # result['dag_root'] is the snapid of repo root.
+    # result['dag_adjacencies'] is a dict of <parent snapid, [list of kid snapids] >
+    print '>>>>>>>> Here is the inverted DAG (parent to kid):'
+    print 'inverted DAG root:' + str(result['dag_root'])
+    print 'inverted DAG adjacencies: '
 
-        print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
+    print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
 
 
 def _dbg_show_dag():
@@ -427,25 +432,32 @@ def _dbg_show_dag():
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
     except UVSErrorTamperDetected as e:
-        print e.message
+        # these are all valid ways of getting the exception msg:
+        # e.message
+        # e.args[0]
+        # str(e)
+
+        # .message is probably the worst/most deprecated way
+
+        # print e.args[0]
+        print str(e)
         sys.exit(1)
 
-    #
-    result = uvsmgr.get_history_dag()
 
-    if result is None:
-        print "Computing history dag failed with nil return"
+        #
 
-    if result['op_failed']:
-        print "operation failed"
-        if result.has_key('op_failed_desc'):
-            print "cause: " + str(result['op_failed_desc'])
-    else:
-        # result['dag_adjacencies'] is a dict of <snapid, [list of snapids of parents] >
-        print '>>>>>>>> Here is the DAG (kid to parent pointers):'
-        print 'DAG adjacencies: '
+    try:
+        result = uvsmgr.get_history_dag()
+    except UVSError as e:
+        print "operation failed, cause: "
+        print str(e)
+        sys.exit(1)
 
-        print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
+    # result['dag_adjacencies'] is a dict of <snapid, [list of snapids of parents] >
+    print '>>>>>>>> Here is the DAG (kid to parent pointers):'
+    print 'DAG adjacencies: '
+
+    print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
 
 
 
@@ -481,26 +493,34 @@ def _merge(branch_to_merge_from):
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
     except UVSErrorTamperDetected as e:
-        print e.message
+
+        # these are all valid ways of getting the exception msg:
+        # e.message
+        # e.args[0]
+        # str(e)
+
+        # .message is probably the worst/most deprecated way
+
+        # print e.args[0]
+        print str(e)
         sys.exit(1)
 
+
     #
-    result = uvsmgr.merge(mrg_src_branch=branch_to_merge_from)
-
-    if result is None:
-        print "merge failed with nil return"
-
-    if result['op_failed']:
-        print "operation failed"
-        if result.has_key('op_failed_desc'):
-            print "cause: " + str(result['op_failed_desc'])
-    else:
-        print result['merge_msg']
 
 
+    try:
+        result = uvsmgr.merge(mrg_src_branch=branch_to_merge_from)
+    except UVSError as e:
+        print "operation failed, cause: "
+        print str(e)
+        sys.exit(1)
 
 
-# TODO show commit msg here as well.
+    print result['merge_msg']
+
+
+
 def _show_all_refs():
     """ Print all branch names found in the repository.
      TODO: add tags support here as well later when libuvs does. """
