@@ -17,6 +17,7 @@ import dal_blackhole
 import dal_sqlite
 import graph_util
 import automergeservice
+import validatorservice as vldserv
 from uvs_errors import *
 
 
@@ -857,8 +858,6 @@ class UVSManager(object):
         log.uvsmgr("list_all_refs() called.")
 
         result = {}
-        result['op_failed'] = False
-
 
         # get the refs doc.
         main_refs_doc_ct = self._dao.get_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME)
@@ -868,20 +867,27 @@ class UVSManager(object):
         main_refs_doc = json.loads(main_refs_doc_serial)
 
         if (main_refs_doc is None) or ('head' not in main_refs_doc):
-            result['op_failed'] = True
-            result['op_failed_desc'] = 'Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path)
-            return result
+            raise  UVSError('Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path))
 
         assert main_refs_doc['head'].has_key('state')
         assert main_refs_doc['head'].has_key('snapid')
         assert main_refs_doc['head'].has_key('branch_handle')
 
         result['refs'] = {}
+        result['commit_msgs'] = {}
+
 
         # add all branch names
-        for ref_key, ref_val in main_refs_doc.items():
-            if "head" != ref_key:
-                result['refs'][ref_key] = ref_val
+        for branch_name, branch_snapid in main_refs_doc.items():
+            if "head" != branch_name:
+                result['refs'][branch_name] = branch_snapid
+
+                branch_snapinfo = self.get_snapinfo_for_snapid(snapid=branch_snapid)
+
+                vldserv.check_snapinfo_dict(snapinfo=branch_snapinfo)
+
+                result['commit_msgs'][branch_name] = branch_snapinfo['msg']
+
 
 
         # add head, (dont de-reference head handle, let head just say master if its attached to master.)
@@ -903,7 +909,16 @@ class UVSManager(object):
             assert main_refs_doc['head']['branch_handle'] is None
 
             log.uvsmgrv("Repo is in detached head state.")
-            result['refs']['head'] = main_refs_doc['head']['snapid']
+
+            head_snapid = main_refs_doc['head']['snapid']
+
+            result['refs']['head'] = head_snapid
+
+            head_snapinfo = self.get_snapinfo_for_snapid(snapid=head_snapid)
+
+            vldserv.check_snapinfo_dict(snapinfo=head_snapinfo)
+
+            result['commit_msgs']['head'] = head_snapinfo['msg']
 
 
         return result
@@ -1700,10 +1715,7 @@ class UVSManager(object):
         assert clear_dest is not None
         assert isinstance(clear_dest, bool)
 
-        assert snapid is not None
-
-        # on windows path names are usually unicode, be careful.
-        assert isinstance(snapid, str) or isinstance(snapid, unicode)
+        snapid = vldserv.check_snapid_and_get_std(snapid=snapid)
 
         assert dest_dirpath is not None
         assert isinstance(dest_dirpath, str) or isinstance(snapid, unicode)
@@ -1764,14 +1776,11 @@ class UVSManager(object):
 
         snapshot_info = json.loads(snapshot_info_serial)
 
-        # TODO get rid of verify snapid BS, refactor into a proper AEAD system.
-        if ('verify_snapid' not in snapshot_info) or ('root' not in snapshot_info) or ('msg' not in snapshot_info) \
-                or ('author_name' not in snapshot_info) or ('author_email' not in snapshot_info):
-            raise UVSErrorInvalidSnapshot("Snapshot json does not contain all expected keys.")
+        vldserv.check_snapshot_json(snapinfo=snapshot_info)
 
         # TODO this should be MAC failed
-        if snapid != snapshot_info['verify_snapid']:
-            raise UVSErrorTamperDetected('Detected data structure tampering. Perhaps some1 tried to reorder snapshots')
+        # if snapid != snapshot_info['verify_snapid']:
+        #    raise UVSErrorTamperDetected('Detected data structure tampering. Perhaps some1 tried to reorder snapshots')
 
 
         snapshot_root_tid = snapshot_info['root']
@@ -1779,6 +1788,36 @@ class UVSManager(object):
         log.uvsmgrv("snapshot root tid is: " + str(snapshot_root_tid))
 
         self._recursively_checkout_tree(tid=snapshot_root_tid, dest_dir_path=dest_dirpath)
+
+
+    def get_snapinfo_for_snapid(self, snapid):
+        """ Given a snapid, return the snapinfo dict containing information such as root tree id, commit msg,
+        time, author etc etc.
+
+        returns none, if snapshot with that id does not exist.
+        """
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        snapid = vldserv.check_snapid_and_get_std(snapid=snapid)
+
+        snapshot_info_ct = self._dao.get_snapshot(snapid=snapid)
+
+        if snapshot_info_ct is None:
+            return None
+
+        snapshot_info_serial = self._crypt_helper.decrypt_bytes(ct=snapshot_info_ct)
+
+        snapshot_info = json.loads(snapshot_info_serial)
+
+        vldserv.check_snapinfo_dict(snapinfo=snapshot_info)
+
+        return snapshot_info
+
+
+
+
 
 
 

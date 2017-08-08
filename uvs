@@ -14,7 +14,7 @@ from libuvs import version
 from libuvs.uvs_errors import *
 
 
-_REPO_PASS_PROMPT = ">> Passphrase: "
+_REPO_PASS_PROMPT = ">> Enter Repository Passphrase: \n"
 
 
 def _init_new_repo():
@@ -529,28 +529,41 @@ def _show_all_refs():
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
     except UVSErrorTamperDetected as e:
-        print e.message
+
+        # these are all valid ways of getting the exception msg:
+        # e.message
+        # e.args[0]
+        # str(e)
+
+        # .message is probably the worst/most deprecated way
+
+        # print e.args[0]
+        print str(e)
         sys.exit(1)
 
     #
-    result = uvsmgr.list_all_refs()
+    result = None
 
-    if result is None:
-        print "Operation failed with nil return"
-
-
-    if result['op_failed']:
+    try:
+        result = uvsmgr.list_all_refs()
+    except UVSError as e:
         print "operation failed"
-        if result.has_key('op_failed_desc'):
-            print "cause: " + str(result['op_failed_desc'])
-    else:
+        print "cause: " + str(e)
+        sys.exit(1)
 
-        print 'Here are the references: \n'
-        print 'head'.ljust(12) + " : " + str(result['refs']['head'])
 
-        for k, v in result['refs'].items():
-            if 'head' != k.lower():
-                print str(k).ljust(12) + " : " + str(v)
+    print 'Here are the references in this repository: \n'
+
+    for ref_name, ref_val in result['refs'].items():
+
+        print log.term_light_blue + str(ref_name).ljust(12) + " : " + str(ref_val) + log.term_reset
+
+        # if head is attached (i.e. head is set to master), no commit msg is returned for it, hence the try
+        # other branches should have a commit msg.
+        try:
+            print "commit msg: " + str(result['commit_msgs'][ref_name]) + "\n"
+        except:
+            pass
 
 
 
