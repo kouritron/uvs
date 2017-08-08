@@ -1333,6 +1333,106 @@ class UVSManager(object):
         # maybe skip this case for now.
 
 
+        # *** scenario 4: merge dest, is sibling (or cousin or ... just not ancestor/desc) of merge src,
+        #             In this case:
+        #                          >> check out merge src to '.uvs_temp/mrg_src'
+        #                          >> check out merge dst to '.uvs_temp/mrg_dst'
+        #                          >> find and check out the common ancestor to '.uvs_temp/ca'
+
+
+        log.v("merge case4. nodes are not each others ancestor/descendant .")
+
+        # if none of case1 or case2 happened mrg_dst and mrg_src must be siblings.
+
+        # use graph util. we have src and dst snapid, get the ca snapid
+
+        s1_snapid = main_refs_doc[mrg_dst_branch_aka_curr_br]
+        s2_snapid = main_refs_doc[mrg_src_branch]
+
+        eca_set = graph_util.dag_find_eca_three_color(dag=dag, node_1=s1_snapid, node_2=s2_snapid)
+
+        ca_snapid = eca_set.pop()
+        # now we have all 3 snapids, fetch their snapinfos, deserialize and decrypt them all.
+
+        s1_snapinfo_ct = self._dao.get_snapshot(snapid=s1_snapid)
+        s2_snapinfo_ct = self._dao.get_snapshot(snapid=s2_snapid)
+        ca_snapinfo_ct = self._dao.get_snapshot(snapid=ca_snapid)
+
+        if s1_snapinfo_ct is None:
+            raise UVSError("Could not find snapshot with id: " + str(s1_snapinfo_ct))
+
+        if s2_snapinfo_ct is None:
+            raise UVSError("Could not find snapshot with id: " + str(s2_snapinfo_ct))
+
+        if ca_snapinfo_ct is None:
+            raise UVSError("Could not find snapshot with id: " + str(ca_snapinfo_ct))
+
+        # got snapinfo now decrypt them
+        s1_snapinfo_serial = self._crypt_helper.decrypt_bytes(ct=s1_snapinfo_ct)
+        s2_snapinfo_serial = self._crypt_helper.decrypt_bytes(ct=s2_snapinfo_ct)
+        ca_snapinfo_serial = self._crypt_helper.decrypt_bytes(ct=ca_snapinfo_ct)
+
+        log.uvsmgr("s1 decrypted: " + str(s1_snapinfo_serial))
+        log.uvsmgr("s2 decrypted: " + str(s2_snapinfo_serial))
+        log.uvsmgr("ca decrypted: " + str(ca_snapinfo_serial))
+
+        # now deserialize them
+        s1_snapinfo = json.loads(s1_snapinfo_serial)
+        s2_snapinfo = json.loads(s2_snapinfo_serial)
+        ca_snapinfo = json.loads(ca_snapinfo_serial)
+
+        s1_root_treeid = s1_snapinfo['root']
+        s2_root_treeid = s2_snapinfo['root']
+        ca_root_treeid = ca_snapinfo['root']
+
+
+        log.uvsmgrv("s1 root tree id is: " + str(s1_root_treeid))
+        log.uvsmgrv("s2 root tree id is: " + str(s2_root_treeid))
+        log.uvsmgrv("ca root tree id is: " + str(ca_root_treeid))
+
+        # now we got 3 tree ids. get the temp dir paths for where these 3 tree ids should be checked out to.
+
+        merge_temp_dirpath = os.path.join(self._repo_root_path, sdef.TEMP_DIR_NAME)
+
+        merge_s1_dirpath = os.path.join(merge_temp_dirpath, mrg_dst_branch_aka_curr_br)
+        merge_s2_dirpath = os.path.join(merge_temp_dirpath, mrg_src_branch)
+        merge_ca_dirpath = os.path.join(merge_temp_dirpath, 'ca')
+
+        # TODO move this name to init, and set it to a constant.
+        merge_out_dirpath = os.path.join(merge_temp_dirpath, 'merge_result')
+
+        if not os.path.exists(merge_s1_dirpath):
+            os.makedirs(merge_s1_dirpath)
+
+        if not os.path.exists(merge_s2_dirpath):
+            os.makedirs(merge_s2_dirpath)
+
+        if not os.path.exists(merge_ca_dirpath):
+            os.makedirs(merge_ca_dirpath)
+
+        if not os.path.exists(merge_out_dirpath):
+            os.makedirs(merge_out_dirpath)
+
+        # now we got 3 tree ids and the respective temp dirs.
+        self._recursively_checkout_tree(tid=s1_root_treeid, dest_dir_path=merge_s1_dirpath)
+        self._recursively_checkout_tree(tid=s2_root_treeid, dest_dir_path=merge_s2_dirpath)
+        self._recursively_checkout_tree(tid=ca_root_treeid, dest_dir_path=merge_ca_dirpath)
+
+        # now call auto merge service
+        conflicts_found = automergeservice.auto_merge3(base_dirpath=merge_ca_dirpath, a_dirpath=merge_s1_dirpath,
+                                                       b_dirpath=merge_s2_dirpath, out_dirpath= merge_out_dirpath)
+
+        if conflicts_found:
+            result['op_failed'] = False
+            result['merge_msg'] = "conflicts found that require manual resolution. check .uvs_temp folder \n" \
+                                  "make sure the merge_result folder has the final version that you want."
+            return result
+
+        else:
+            result['op_failed'] = False
+            result['merge_msg'] = "merged your files using the diff3 program. check merge_result under .uvs_temp"
+            return result
+
 
 
 
