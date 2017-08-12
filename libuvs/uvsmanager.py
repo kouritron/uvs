@@ -550,7 +550,7 @@ class UVSManager(object):
         # save the main refs
         new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=True, sort_keys=True)
 
-        log.v("type(new_main_refs_serialized): " + str(type(new_main_refs_serialized)))
+        #log.v("type(new_main_refs_serialized): " + str(type(new_main_refs_serialized)))
 
         new_main_refs_ct = crypt_helper.encrypt_bytes(new_main_refs_serialized)
 

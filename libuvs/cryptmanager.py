@@ -175,7 +175,7 @@ class UVSCryptHelper(object):
 
         log.cmv('encrypt_bytes() called, with message: ' + repr(message) )
 
-        assert isinstance(message, str) or isinstance(message, bytes) or isinstance(message, unicode)
+        assert isinstance(message, str) or isinstance(message, bytes)
 
         # this is just for debugging.
         if sdef.SKIP_ENCRYPTION:
@@ -197,7 +197,7 @@ class UVSCryptHelper(object):
 
         log.cmv('decrypt_bytes() called, with ciphertext: ' + str(ct))
 
-        assert isinstance(ct, str) or isinstance(ct, bytes) or isinstance(ct, unicode)
+        assert isinstance(ct, str) or isinstance(ct, bytes)
 
         # this is just for debugging.
         if sdef.SKIP_ENCRYPTION:
@@ -220,7 +220,7 @@ class UVSCryptHelper(object):
         log.cmv('get_uvsfp() called.')
 
 
-        assert isinstance(message, str) or isinstance(message, bytes) or isinstance(message, unicode)
+        assert isinstance(message, str) or isinstance(message, bytes)
 
 
 
