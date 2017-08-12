@@ -586,6 +586,10 @@ def _show_all_refs():
             pass
 
 
+def  _detail_commit(commit_id):
+    """ Given a commit id, print its details like author, commit msg .... """
+
+    pass
 
 
 
@@ -599,10 +603,11 @@ def _parse_cmdline():
 
     parser.add_argument("subcmd1", help="what should uvs do",
                         choices=['init', 'status', 'log-all', 'log', 'commit', 'checkout', 'branch',
-                                 'merge', 'show-refs', 'dbg-show-inv-dag', 'dbg-show-dag'])
+                                 'merge', 'show-refs', 'detail-commit', 'dbg-show-inv-dag', 'dbg-show-dag'])
 
     parser.add_argument("-m", "--message", help="commit message")
     parser.add_argument("-r", "--ref", help="commit reference, either a commit id or branch name")
+    parser.add_argument("-c", "--cid", help="commit id")
     parser.add_argument("-n", "--name", help="branch name.")
     args = parser.parse_args()
 
@@ -657,6 +662,18 @@ def _parse_cmdline():
             sys.exit(2)
 
         _checkout(commit_ref=commit_ref)
+
+    elif 'detail-commit' == args.subcmd1:
+        log.cliv(">>>> detail-commit sub command called.")
+
+        # cid must be a commit id
+        commit_id = args.cid
+        if None == commit_id:
+            print "commit id (-c or --cid) is required."
+            sys.exit(2)
+
+        _detail_commit(commit_id=commit_id)
+
 
     elif 'branch' == args.subcmd1:
         log.cliv(">>>> branch sub command called.")

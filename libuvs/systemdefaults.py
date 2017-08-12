@@ -23,7 +23,7 @@ INSECURE_RAND_SALT = True
 
 NOT_SO_RAND_SNAPSHOT_ID = False
 
-SKIP_ENCRYPTION = True
+SKIP_ENCRYPTION = False
 
 if SKIP_ENCRYPTION: print "\033[1;31m" + "\n**** Warning system is set to skip encryption ****\n" + "\033[0;0m"
 
@@ -57,9 +57,10 @@ SEGMENT_SIZE_DEFAULT = 4096
 SEGMENT_SIZE_MAX = 8192
 
 # in case pbkdf2 is used for key derivation, this specifies number of iterations
-# TODO reset this back to 1 million or higher. i am lowering it now for development
+# TODO pbkdf2-hmac is fine for now, in the future add support for argon2, scrypt, or bcrypt
+# or better yet, some combination of them. (like 40k pbkdf2, then argon2, then 40k pbkdf2)
 #PBKDF2_ITERATIONS = 1000 * 1000
-PBKDF2_ITERATIONS = 60000
+PBKDF2_ITERATIONS = 120000
 #-----------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------------

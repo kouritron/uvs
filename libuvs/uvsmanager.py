@@ -85,7 +85,7 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
 
     log.uvsmgr("public doc: " + repr(public_document))
 
-    public_doc_serialized = json.dumps(public_document, ensure_ascii=False, sort_keys=True)
+    public_doc_serialized = json.dumps(public_document, ensure_ascii=True, sort_keys=True)
 
     crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt=public_document['salt'])
 
@@ -129,7 +129,7 @@ def init_new_uvs_repo_overwrite(repo_pass, repo_root_path):
         pass
 
 
-    main_refs_doc_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+    main_refs_doc_serialized = json.dumps(main_refs_doc, ensure_ascii=True, sort_keys=True)
     main_refs_doc_ct = crypt_helper.encrypt_bytes(main_refs_doc_serialized)
 
     temp_dao = dal_sqlite.DAO(shadow_db_file_path)
@@ -270,7 +270,7 @@ class UVSManager(object):
         finfo['segments'] = []
         finfo['segments'].append((curr_file_fp, 0))
 
-        finfo = json.dumps(finfo, ensure_ascii=False, sort_keys=True)
+        finfo = json.dumps(finfo, ensure_ascii=True, sort_keys=True)
 
         finfo_ct = self._crypt_helper.encrypt_bytes(message=finfo)
 
@@ -361,7 +361,7 @@ class UVSManager(object):
         # (that is a given version of uvs always does it, in the same order.)
         tree_info['tids'].sort(key=lambda elem: (elem[0], elem[1]))
 
-        tree_info_serial = json.dumps(tree_info, ensure_ascii=False, sort_keys=True)
+        tree_info_serial = json.dumps(tree_info, ensure_ascii=True, sort_keys=True)
 
         # get the fingerprint (aka tree id) and the ciphertext
         tree_id = crypt_helper.get_uvsfp(tree_info_serial)
@@ -511,7 +511,7 @@ class UVSManager(object):
 
 
 
-        snapshot_info_serial = json.dumps(snapshot_info, ensure_ascii=False, sort_keys=True)
+        snapshot_info_serial = json.dumps(snapshot_info, ensure_ascii=True, sort_keys=True)
         snapshot_info_ct = crypt_helper.encrypt_bytes(snapshot_info_serial)
 
         log.uvsmgr('new snapshot id: ' + new_snapid + "\nnew snapshot json(ct): " + snapshot_info_ct)
@@ -548,9 +548,9 @@ class UVSManager(object):
 
 
         # save the main refs
-        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=True, sort_keys=True)
 
-        #log.uvsmgrv("type(new_main_refs_serialized): " + str(type(new_main_refs_serialized)))
+        log.v("type(new_main_refs_serialized): " + str(type(new_main_refs_serialized)))
 
         new_main_refs_ct = crypt_helper.encrypt_bytes(new_main_refs_serialized)
 
@@ -831,7 +831,7 @@ class UVSManager(object):
             main_refs_doc['head']['branch_handle'] = new_branch_name
 
         # save the main refs
-        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=True, sort_keys=True)
 
         #log.uvsmgrv("type(new_main_refs_serialized): " + str(type(new_main_refs_serialized)))
 
@@ -1291,7 +1291,7 @@ class UVSManager(object):
             main_refs_doc[mrg_dst_branch_aka_curr_br] = main_refs_doc[mrg_src_branch]
 
             # now save the new main refs
-            new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+            new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=True, sort_keys=True)
             new_main_refs_ct = self._crypt_helper.encrypt_bytes(new_main_refs_serialized)
             self._dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=new_main_refs_ct)
 
@@ -1650,7 +1650,7 @@ class UVSManager(object):
 
 
         # now save the main refs
-        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=False, sort_keys=True)
+        new_main_refs_serialized = json.dumps(main_refs_doc, ensure_ascii=True, sort_keys=True)
         new_main_refs_ct = self._crypt_helper.encrypt_bytes(new_main_refs_serialized)
         self._dao.update_ref_doc(ref_doc_id=_MAIN_REF_DOC_NAME, ref_doc=new_main_refs_ct)
 
