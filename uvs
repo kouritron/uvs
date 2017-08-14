@@ -70,7 +70,7 @@ def _checkout(commit_ref):
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
         print e.message
         sys.exit(1)
 
@@ -124,7 +124,7 @@ def _commit(commit_msg):
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass , repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
         print e.message
         sys.exit(1)
 
@@ -171,7 +171,7 @@ def _log_all_commits():
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass , repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
         print e.message
         sys.exit(1)
 
@@ -216,7 +216,7 @@ def _log_commits():
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass , repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
         print e.message
         sys.exit(1)
 
@@ -272,7 +272,7 @@ def _show_status():
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
         print e.message
         sys.exit(1)
 
@@ -332,7 +332,7 @@ def _branch(new_branch_name):
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
         print e.message
         sys.exit(1)
 
@@ -376,7 +376,7 @@ def _dbg_show_inverted_dag():
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
         # these are all valid ways of getting the exception msg:
         # e.message
         # e.args[0]
@@ -431,7 +431,7 @@ def _dbg_show_dag():
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
         # these are all valid ways of getting the exception msg:
         # e.message
         # e.args[0]
@@ -492,7 +492,7 @@ def _merge(branch_to_merge_from):
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
 
         # these are all valid ways of getting the exception msg:
         # e.message
@@ -548,7 +548,7 @@ def _show_all_refs():
 
     try:
         uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
-    except UVSErrorTamperDetected as e:
+    except UVSError as e:
 
         # these are all valid ways of getting the exception msg:
         # e.message

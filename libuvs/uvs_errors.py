@@ -1,47 +1,29 @@
 
 
-# TODO: this file is to be demolished/removed or at least refactored down to a minimum along with usage of exceptions
-# i have decided that exceptions are evil. and object oriented exceptions are truly a remarkable category of crap.
-# assign a an error number to each specific error case, return error codes and handle them
-# separately and in due time. Its better to just return error codes (along with optional msgs) from function calls
-# than to use exceptions. most of golang community also agrees with me on this.
-# exceptions should be used for truly exceptional cases. they should almost always be pretty close
-# to log something onto the correct output; exit();
-# if you are raising and recovering from exceptions frequently, you are probably doing something very wrong
-# notwithstanding the BS pythonic culture of using exceptions overly and often.
-# i cant explain too much more here, than to say keep exceptions for truly catastrophic situations, there is no
-# need to use exceptions to duplicate ways to return values from function calls
+## UVSError handling guidelines:
+
+# 1- don't use OOP exceptions, NEVER NEVER NEVER use inheritance in exceptions
+#       i dont like exception X that inherits from Y and 2mrw is a G then suddenly catches an F blah blah
+#       doing the above makes it harder not easier to figure out what the hell happened.
+#       just use one exception class. return a descriptive msg as to what happened. and if more specifity is needed
+#       associate an error code with that exception and enumerate the errors
+#       (i.e. 1 means permission denied, 2 means mac failed ..... ) this is so far not needed.
+#       if it was needed we code add something like uvs_error_no field to this class and enumerate the
+#       the different error codes in this module.
+#       (python shamefully has no constants but there is trick to be done with properties, and raise Error on set
+#       that pretty much gives us the same thing as language enforced constants, google it)
+#
+# 2- exceptions are not return values, dont ever use exceptions to communicate results from a sub-routine.
+#       exceptions are meant to indicate a catastrophic situation that required an immediate termination
+#       to whatever was happening. for example if a key was not found do NOT raise an exception, return None
+#       an exception must terminate something. sometimes it should terminate the process. sometimes
+#       it terminates a thread, sometimes it should terminate a web request. its not a return value.
+#       it should be used like golang's panic call.
+#
+#
 
 
 
 
 class UVSError(Exception):
-    pass
-
-
-class UVSErrorInvalidSnapshot(UVSError):
-    pass
-
-
-class UVSErrorInvalidTree(UVSError):
-    pass
-
-
-class UVSErrorInvalidFile(UVSError):
-    pass
-
-
-class UVSErrorInvalidDestinationDirectory(UVSError):
-    pass
-
-
-class UVSErrorInvalidRepository(UVSError):
-    pass
-
-
-class UVSErrorTableDoesNotHaveSuchKey(UVSError):
-    pass
-
-
-class UVSErrorTamperDetected(UVSError):
     pass

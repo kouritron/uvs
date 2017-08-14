@@ -11,7 +11,6 @@ import log
 import cryptmanager as cm
 import systemdefaults as sdef
 import version
-import uvs_errors
 import dal_psql
 import dal_blackhole
 import dal_sqlite
@@ -171,7 +170,7 @@ class UVSManager(object):
 
         # if any of the pub doc or its mac tag is missing this is an invalid repo.
         if (pub_doc is None) or (pub_doc_mac_tag is None):
-            raise uvs_errors.UVSErrorInvalidRepository("No valid public document found in this repository. ")
+            raise UVSError("Invalid repo, No valid public document found in this repository. ")
 
 
         # we need to verify this public doc's MAC tag to make sure its not tampered with.
@@ -182,14 +181,14 @@ class UVSManager(object):
         public_doc_dict = json.loads(pub_doc)
 
         if not public_doc_dict.has_key('salt'):
-            raise uvs_errors.UVSErrorInvalidRepository('Invalid repo, public document does not have the salt.')
+            raise UVSError('Invalid repo, public document does not have the repository salt.')
 
         tmp_crypt_helper = cm.UVSCryptHelper(usr_pass=repo_pass, salt=str(public_doc_dict['salt']))
 
         mac_tag_recomputed = tmp_crypt_helper.get_uvsfp(pub_doc)
 
         if mac_tag_recomputed != pub_doc_mac_tag:
-            raise UVSErrorTamperDetected("Either the repository was tampered with or you supplied wrong password.")
+            raise UVSError("Either the repository was tampered with or you supplied wrong password.")
 
         self._crypt_helper = tmp_crypt_helper
         self._repo_root_path = repo_root_path
@@ -397,7 +396,7 @@ class UVSManager(object):
         main_refs_doc = json.loads(main_refs_doc_serial)
 
         if (main_refs_doc is None) or ('head' not in main_refs_doc):
-            raise UVSErrorInvalidRepository("Error: head does not exist. Are you sure this is a uvs repository.")
+            raise UVSError("Invalid repo, head does not exist. Are you sure this is a uvs repository.")
 
 
         # TODO refactor this function for merge commits where we have more than, one parent.
@@ -670,7 +669,7 @@ class UVSManager(object):
         main_refs_doc = json.loads(main_refs_doc_serial)
 
         if (main_refs_doc is None) or ('head' not in main_refs_doc):
-            raise UVSErrorInvalidRepository("Error: head does not exist. Are you sure this is a uvs repository.")
+            raise UVSError("Error: head does not exist. Are you sure this is a uvs repository.")
 
 
         assert main_refs_doc['head'].has_key('state')
@@ -715,7 +714,7 @@ class UVSManager(object):
         snapshot_info_ct = self._dao.get_snapshot(snapid= result['head'])
 
         if snapshot_info_ct is None:
-            raise UVSErrorInvalidSnapshot("Could not find snapshot with id: " + str(result['head']))
+            raise UVSError("Could not find snapshot with id: " + str(result['head']))
 
         snapshot_info_serial = self._crypt_helper.decrypt_bytes(ct=snapshot_info_ct)
 
@@ -724,7 +723,7 @@ class UVSManager(object):
         snapshot_info = json.loads(snapshot_info_serial)
 
         if 'root' not in snapshot_info:
-            raise UVSErrorInvalidSnapshot("Snapshot json does not contain all expected keys.")
+            raise UVSError("invalid snapshot, json does not contain all expected keys.")
 
         head_root_tid = snapshot_info['root']
 
@@ -867,7 +866,7 @@ class UVSManager(object):
         main_refs_doc = json.loads(main_refs_doc_serial)
 
         if (main_refs_doc is None) or ('head' not in main_refs_doc):
-            raise  UVSError('Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path))
+            raise UVSError('Cant find head. Is this a uvs repo, path: ' + str(self._repo_root_path))
 
         assert main_refs_doc['head'].has_key('state')
         assert main_refs_doc['head'].has_key('snapid')
@@ -1435,7 +1434,7 @@ class UVSManager(object):
         log.uvsmgrv("finfo cipher text: " + str(finfo_ct))
 
         if finfo_ct is None:
-            raise UVSErrorInvalidTree("No such file found for the given file id.")
+            raise UVSError("No such file exists with file id: " + str(fid))
 
         finfo_serial = self._crypt_helper.decrypt_bytes(ct=finfo_ct)
 
@@ -1446,10 +1445,10 @@ class UVSManager(object):
         # TODO get rid of these stupid verify_fids, its so ugly. we need a proper AEAD crypto module Fernet sucks.
         # by not allowing us to supply associated data to be included into the tag.
         if ('segments' not in finfo) or ('verify_fid' not in finfo):
-            raise UVSErrorInvalidFile("File json does not contain all expected keys.")
+            raise UVSError("invalid finfo, json does not contain all expected keys.")
 
         if fid != finfo['verify_fid']:
-            raise UVSErrorTamperDetected("Tamper detected, fid does not match verify fid.")
+            raise UVSError("Tamper detected, fid does not match verify fid.")
 
         # next open a file with temporary filename. write segments into it.
         temp_pathname = rand_util.choose_unique_random_file(dest_directory=dest_dir_path)
@@ -1464,7 +1463,7 @@ class UVSManager(object):
 
             if segment_ct is None:
                 # TODO close and remove that file we opened.
-                raise UVSErrorInvalidTree("No such segment found for the given sgid.")
+                raise UVSError("No such segment exists with sgid:" + str(sgid))
 
             # TODO do segment decrypt in try, so we can delete the temp file. if we didn't have a temp file to
             # delete we could just let possible tamper errors propagate to the caller
@@ -1496,7 +1495,7 @@ class UVSManager(object):
         tree_info_ct = self._dao.get_tree(tid)
 
         if tree_info_ct is None:
-            raise UVSErrorInvalidTree("Cant find the tree to check out. Data structures must be corrupted.")
+            raise UVSError("No such tree exists, tree_id: " + str(tid) )
 
         tree_info_serial = self._crypt_helper.decrypt_bytes(ct=tree_info_ct)
 
@@ -1506,7 +1505,7 @@ class UVSManager(object):
         tree_info = json.loads(tree_info_serial)
 
         if ('fids' not in tree_info) or ('tids' not in tree_info):
-            raise UVSErrorInvalidTree("Tree json does not contain all expected keys.")
+            raise UVSError("invalid treeinfo, json does not contain all expected keys.")
 
         for fname, fid in tree_info['fids']:
             log.uvsmgrv("fname: " + str(fname) + " fid: " + str(fid))
@@ -1692,7 +1691,7 @@ class UVSManager(object):
         # now check again to see if it does exist or not. if still does not exist, i cant proceed. error
 
         if not os.path.isdir(dest_dirpath):
-            raise uvs_errors.UVSError("Invalid destination directory.")
+            raise UVSError("Invalid destination directory.")
 
         # TODO: i think we should not remove files that are not version controlled.
         # study git's behavior on this.
@@ -1739,11 +1738,11 @@ class UVSManager(object):
 
         snapshot_info = json.loads(snapshot_info_serial)
 
-        vldserv.check_snapshot_json(snapinfo=snapshot_info)
+        vldserv.check_snapinfo_dict(snapinfo=snapshot_info)
 
         # TODO this should be MAC failed
         # if snapid != snapshot_info['verify_snapid']:
-        #    raise UVSErrorTamperDetected('Detected data structure tampering. Perhaps some1 tried to reorder snapshots')
+        #    raise UVSError('Detected data structure tampering. Perhaps some1 tried to reorder snapshots')
 
 
         snapshot_root_tid = snapshot_info['root']
