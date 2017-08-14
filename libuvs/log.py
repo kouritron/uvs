@@ -11,7 +11,11 @@ _DISABLE_ALL_LOGS = True
 ##----------------------------------------------------------------------------------------------------------------------
 
 _DISABLE_LOG_CLASS_HAZARD = _DISABLE_ALL_LOGS or False
-_DISABLE_LOG_CLASS_V = _DISABLE_ALL_LOGS or False
+#_DISABLE_LOG_CLASS_V = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_V = False
+
+
+
 
 _DISABLE_LOG_CLASS_VV = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_VVV = _DISABLE_ALL_LOGS or False
@@ -41,16 +45,9 @@ _DISABLE_LOG_CLASS_DAG = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_DAGV = _DISABLE_ALL_LOGS or True
 
 # history DAG related msgs
-_DISABLE_LOG_CLASS_AMS = _DISABLE_ALL_LOGS or False
+#_DISABLE_LOG_CLASS_AMS = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_AMS = False
 _DISABLE_LOG_CLASS_AMSV = _DISABLE_ALL_LOGS or True
-
-
-# re enable a couple temp ones:
-_DISABLE_LOG_CLASS_V = False
-
-# _DISABLE_LOG_CLASS_AMS = False
-
-
 
 
 
