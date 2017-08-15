@@ -106,9 +106,6 @@ def gui_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
 # handle cases where file is not in all 3.
 # recursively call this
 
-
-
-
 # TODO validate path names better
 # if a path name contains space this may break, we need some os or other module to pre-process path names
 def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
@@ -132,7 +129,134 @@ def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
     assert os.path.isdir(b_dirpath)
     assert os.path.isdir(out_dirpath)
 
+    # TODO
+    # call merge3_files on this level save result
+    # find common subdirs. for each common subdir call self with joined pathnames
+    # combine results and return them
+
+    results = {}
+
+    # # these need manual resolution
+    results['hard_conflicts_found'] = False
+
+    # # these mean something bad happened, i.e. bin files, permission denied ...
+    results['trouble_found'] = False
+
+    current_level_results = merge3_all_files(base_dirpath=base_dirpath, a_dirpath=a_dirpath, b_dirpath=b_dirpath,
+                                             out_dirpath=out_dirpath)
+
+    if current_level_results['hard_conflicts_found']:
+        results['hard_conflicts_found'] = True
+
+    if current_level_results['trouble_found']:
+        results['trouble_found'] = True
+
+    # done with this.
+    del current_level_results
+
+    log.ams("", label=False)
+    log.ams("------------------------------------------------------------------------------")
+    log.ams("------------------------------------------------------------------------------")
+    log.ams("------------------------------------------------------------------------------")
+    log.ams("----------------------------- Done merging current level, now trying subdirs. ")
+
+
+    base_members = os.listdir(base_dirpath)
+    base_subdirnames = [member for member in base_members if os.path.isdir(os.path.join(base_dirpath, member))]
+    base_members.sort()
+    base_subdirnames.sort()
+
+    a_members = os.listdir(a_dirpath)
+    a_subdirnames = [member for member in a_members if os.path.isdir(os.path.join(a_dirpath, member))]
+    a_members.sort()
+    a_subdirnames.sort()
+
+    b_members = os.listdir(b_dirpath)
+    b_subdirnames = [member for member in b_members if os.path.isdir(os.path.join(b_dirpath, member))]
+    b_members.sort()
+    b_subdirnames.sort()
+
+    log.ams("base_members:     " + str(base_members))
+    log.ams("base_subdirnames: " + str(base_subdirnames))
+
+    log.ams("a_members:     " + str(a_members))
+    log.ams("a_subdirnames: " + str(a_subdirnames))
+
+    log.ams("b_members:     " + str(b_members))
+    log.ams("b_subdirnames: " + str(b_subdirnames))
+
+    common_subdirs = set()
+
+    for subdir in a_subdirnames:
+        if (subdir in base_subdirnames) and (subdir in b_subdirnames):
+            common_subdirs.add(subdir)
+
+    log.ams("common subdirs: " + str(common_subdirs))
+
+    for common_subdir in common_subdirs:
+
+        log.ams("handling common_subdir: " + str(common_subdir))
+
+        base_subdir_path = os.path.join(base_dirpath, common_subdir)
+        a_subdir_path = os.path.join(a_dirpath, common_subdir)
+        b_subdir_path = os.path.join(b_dirpath, common_subdir)
+        out_subdir_path = os.path.join(out_dirpath, common_subdir)
+
+
+        # make the directory under merge results
+        if not os.path.isdir(out_subdir_path):
+            os.makedirs(out_subdir_path)
+
+        # temp_results  = ....
+        temp_results = merge3_all_files(base_dirpath=base_subdir_path, a_dirpath=a_subdir_path, b_dirpath=b_subdir_path,
+                                             out_dirpath=out_subdir_path)
+
+        if temp_results['hard_conflicts_found']:
+            results['hard_conflicts_found'] = True
+
+        if temp_results['trouble_found']:
+            results['trouble_found'] = True
+
+
+    return results
+
+# just files, no looking into recursive subdirs.
+def merge3_all_files(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
+
+
+    # TODO: maybe we allow None to be supplied as an argument, and None would indicate an empty
+    # folder, (the folder doesnt exist, but treat it as empty, so if None replace listdir() with empty list.
+    # output can not be None tho. keep that assertion
+
+    assert isinstance(base_dirpath, str) or isinstance(base_dirpath, unicode)
+    assert isinstance(a_dirpath, str) or isinstance(a_dirpath, unicode)
+    assert isinstance(b_dirpath, str) or isinstance(b_dirpath, unicode)
+    assert isinstance(out_dirpath, str) or isinstance(out_dirpath, unicode)
+
+    assert out_dirpath != base_dirpath
+    assert out_dirpath != a_dirpath
+    assert out_dirpath != b_dirpath
+
+    assert os.path.isdir(base_dirpath)
+    assert os.path.isdir(a_dirpath)
+    assert os.path.isdir(b_dirpath)
+    assert os.path.isdir(out_dirpath)
+
+
+    log.ams("", label=False)
+    log.ams("------------------------------------------------------------------------------")
+    log.ams("------------------------------------------------------------------------------")
+    log.ams("------------------------------------------------------------------------------")
+    log.ams("-------------------------------------------------------- merge3_all_files() \n")
+
     res = {}
+
+    # these need manual resolution
+    res['hard_conflicts_found'] = False
+
+    # these mean something bad happened, i.e. bin files, permission denied ...
+    res['trouble_found'] = False
+
 
 
     base_members = os.listdir(base_dirpath)
@@ -150,13 +274,13 @@ def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
     b_members.sort()
     b_filenames.sort()
 
-    log.ams("base_elements:  " + str(base_members))
+    log.ams("base_members:   " + str(base_members))
     log.ams("base_filenames: " + str(base_filenames))
 
-    log.ams("a_kids:      " + str(a_members))
+    log.ams("a_members:   " + str(a_members))
     log.ams("a_filenames: " + str(a_filenames))
 
-    log.ams("b_kids:      " + str(b_members))
+    log.ams("b_members:   " + str(b_members))
     log.ams("b_filenames: " + str(b_filenames))
     log.ams("---------------------------------------------------------------------------------------------\n")
 
@@ -412,12 +536,6 @@ def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
     log.ams("common files: " + str(common))
 
     # launch diff3 external program to do the 3 way merging.
-
-    # these need manual resolution
-    res['hard_conflicts_found'] = False
-
-    # these mean something bad happened, i.e. bin files, permission denied ...
-    res['trouble_found'] = False
 
     for filename in common:
         ca_filepath = str(os.path.join(base_dirpath, filename))
