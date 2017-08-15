@@ -124,13 +124,15 @@ def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
     assert out_dirpath != a_dirpath
     assert out_dirpath != b_dirpath
 
-    assert os.path.isdir(base_dirpath)
-    assert os.path.isdir(a_dirpath)
-    assert os.path.isdir(b_dirpath)
-    assert os.path.isdir(out_dirpath)
+    assert out_dirpath is not None
 
-    # TODO
-    # call merge3_files on this level save result
+    if not os.path.isdir(out_dirpath):
+        os.makedirs(out_dirpath)
+
+
+
+    # we do this
+    # call merge3_files on this level update result
     # find common subdirs. for each common subdir call self with joined pathnames
     # combine results and return them
 
@@ -156,22 +158,29 @@ def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
 
     log.ams("", label=False)
     log.ams("------------------------------------------------------------------------------")
-    log.ams("------------------------------------------------------------------------------")
-    log.ams("------------------------------------------------------------------------------")
-    log.ams("----------------------------- Done merging current level, now trying subdirs. ")
+    log.ams("----------------------------- Done merging current level, recursing. ")
 
 
-    base_members = os.listdir(base_dirpath)
+    base_members = []
+    if (base_dirpath is not None) and os.path.isdir(base_dirpath):
+        base_members = os.listdir(base_dirpath)
+
     base_subdirnames = [member for member in base_members if os.path.isdir(os.path.join(base_dirpath, member))]
     base_members.sort()
     base_subdirnames.sort()
 
-    a_members = os.listdir(a_dirpath)
+    a_members = []
+    if (a_dirpath is not None) and os.path.isdir(a_dirpath):
+        a_members = os.listdir(a_dirpath)
+
     a_subdirnames = [member for member in a_members if os.path.isdir(os.path.join(a_dirpath, member))]
     a_members.sort()
     a_subdirnames.sort()
 
-    b_members = os.listdir(b_dirpath)
+    b_members = []
+    if (b_dirpath is not None) and os.path.isdir(b_dirpath):
+        b_members = os.listdir(b_dirpath)
+
     b_subdirnames = [member for member in b_members if os.path.isdir(os.path.join(b_dirpath, member))]
     b_members.sort()
     b_subdirnames.sort()
@@ -185,22 +194,26 @@ def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
     log.ams("b_members:     " + str(b_members))
     log.ams("b_subdirnames: " + str(b_subdirnames))
 
-    common_subdirs = set()
+    subdirs = set()
 
     for subdir in a_subdirnames:
-        if (subdir in base_subdirnames) and (subdir in b_subdirnames):
-            common_subdirs.add(subdir)
+        # if (subdir in base_subdirnames) and (subdir in b_subdirnames): pass
+        # if (subdir in b_subdirnames): pass
+        subdirs.add(subdir)
 
-    log.ams("common subdirs: " + str(common_subdirs))
+    for subdir in b_subdirnames:
+        subdirs.add(subdir)
 
-    for common_subdir in common_subdirs:
+    log.ams("about to visit subdirs: " + str(subdirs))
 
-        log.ams("handling common_subdir: " + str(common_subdir))
+    for subdir in subdirs:
 
-        base_subdir_path = os.path.join(base_dirpath, common_subdir)
-        a_subdir_path = os.path.join(a_dirpath, common_subdir)
-        b_subdir_path = os.path.join(b_dirpath, common_subdir)
-        out_subdir_path = os.path.join(out_dirpath, common_subdir)
+        log.ams("handling subdir: " + str(subdir))
+
+        base_subdir_path = os.path.join(base_dirpath, subdir)
+        a_subdir_path = os.path.join(a_dirpath, subdir)
+        b_subdir_path = os.path.join(b_dirpath, subdir)
+        out_subdir_path = os.path.join(out_dirpath, subdir)
 
 
         # make the directory under merge results
@@ -208,7 +221,7 @@ def auto_merge3(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
             os.makedirs(out_subdir_path)
 
         # temp_results  = ....
-        temp_results = merge3_all_files(base_dirpath=base_subdir_path, a_dirpath=a_subdir_path, b_dirpath=b_subdir_path,
+        temp_results = auto_merge3(base_dirpath=base_subdir_path, a_dirpath=a_subdir_path, b_dirpath=b_subdir_path,
                                              out_dirpath=out_subdir_path)
 
         if temp_results['hard_conflicts_found']:
@@ -237,17 +250,23 @@ def merge3_all_files(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
     assert out_dirpath != a_dirpath
     assert out_dirpath != b_dirpath
 
-    assert os.path.isdir(base_dirpath)
-    assert os.path.isdir(a_dirpath)
-    assert os.path.isdir(b_dirpath)
-    assert os.path.isdir(out_dirpath)
+    assert out_dirpath is not None
+
+    if not os.path.isdir(out_dirpath):
+        os.makedirs(out_dirpath)
 
 
     log.ams("", label=False)
     log.ams("------------------------------------------------------------------------------")
     log.ams("------------------------------------------------------------------------------")
     log.ams("------------------------------------------------------------------------------")
-    log.ams("-------------------------------------------------------- merge3_all_files() \n")
+    log.ams("----------------------------------------------------------- merge3_all_files()")
+    log.ams("----- base_dirpath: " + str(base_dirpath))
+    log.ams("----- a_dirpath: " + str(a_dirpath))
+    log.ams("----- b_dirpath: " + str(b_dirpath))
+    log.ams("----- out_dirpath: " + str(out_dirpath))
+    log.ams("", label=False)
+
 
     res = {}
 
@@ -259,17 +278,26 @@ def merge3_all_files(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
 
 
 
-    base_members = os.listdir(base_dirpath)
+    base_members = []
+    if (base_dirpath is not None) and os.path.isdir(base_dirpath):
+        base_members = os.listdir(base_dirpath)
+
     base_filenames = [member for member in base_members if os.path.isfile(os.path.join(base_dirpath, member))]
     base_members.sort()
     base_filenames.sort()
 
-    a_members = os.listdir(a_dirpath)
+    a_members = []
+    if (a_dirpath is not None) and os.path.isdir(a_dirpath):
+        a_members = os.listdir(a_dirpath)
+
     a_filenames = [member for member in a_members if os.path.isfile(os.path.join(a_dirpath, member))]
     a_members.sort()
     a_filenames.sort()
 
-    b_members = os.listdir(b_dirpath)
+    b_members = []
+    if (b_dirpath is not None) and os.path.isdir(b_dirpath):
+        b_members = os.listdir(b_dirpath)
+
     b_filenames = [member for member in b_members if os.path.isfile(os.path.join(b_dirpath, member))]
     b_members.sort()
     b_filenames.sort()
@@ -282,7 +310,7 @@ def merge3_all_files(base_dirpath, a_dirpath, b_dirpath, out_dirpath):
 
     log.ams("b_members:   " + str(b_members))
     log.ams("b_filenames: " + str(b_filenames))
-    log.ams("---------------------------------------------------------------------------------------------\n")
+    log.ams("---------------------------------------------------------------------------------------------")
 
 
     # There are 3 main Cases
