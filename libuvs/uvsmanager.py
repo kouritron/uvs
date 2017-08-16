@@ -760,6 +760,9 @@ class UVSManager(object):
             result['op_failed_desc'] = 'It does not make sense to create a branch called head.'
             return result
 
+        # TODO disallow a list of disallowed branch names, store all disallowed under UVSConstants
+        # this should include common ancestor head, .....
+
         # Now look at snapshots table.
         # its crazy to create a branch whose name is the commit id of some other commit.
         # try to get snapshot, if we got something other than none, then snapshot does exist.
@@ -1326,6 +1329,8 @@ class UVSManager(object):
 
         eca_set = graph_util.dag_find_eca_three_color(dag=dag, node_1=s1_snapid, node_2=s2_snapid)
 
+        log.vvvv("repr(eca_set): " + repr(eca_set))
+
         ca_snapid = eca_set.pop()
         # now we have all 3 snapids, fetch their snapinfos, deserialize and decrypt them all.
 
@@ -1408,22 +1413,74 @@ class UVSManager(object):
                                    "\nresolve these and make sure that folder has the final version " +
                                    "that you want. \n" +
                                    "then run the merge-finalize command to commit the merge.")
-            return result
-
         else:
             # result['op_failed'] = False
-            result['merge_msg'] = ("Successfully merged your files using the 3 way merge algorithm." +
-                                   "There are no conflicts that need manual resolution. However this does not mean " +
-                                   "that the merge result is necessarily what you want. It is possible that two " +
-                                   "perfectly bug-free branches get merged, and the 3 way merge algorithm introduces " +
-                                   "a bug that did not exist in any of the two branches involved in the merge. " +
-                                   "This is true of all 3 way merging programs or dvcs including git. " +
-                                   "Such situations arise when the two branches have overlapping side effects, " +
-                                   "but have only changed lines from well-separated parts of your source. " +
+            result['merge_msg'] = ("\nSuccessfully merged your files using the 3 way merge algorithm.\n" +
+                                   "There are no conflicts that need manual resolution.\nHowever this does not mean " +
+                                   "that the merge result is necessarily what you want. \nIt is possible that two " +
+                                   "perfectly bug-free branches get merged,\nand the 3 way merge algorithm introduces " +
+                                   "a bug \nthat did not exist in any of the two branches involved in the merge. \n" +
+                                   "This is true of all 3 way merging programs or dvcs including git. \n" +
+                                   "Such situations arise when the two branches have overlapping side effects,\n" +
+                                   "but have only changed lines from well-separated parts of your source. \n" +
                                    "check your merge results under: " + str(merge_out_dirpath) +
-                                   "\nconfirm that this is what you want " +
+                                   "\nconfirm that this is what you want. " +
                                    "then run the merge-finalize command to commit the merge.")
-            return result
+
+
+
+        # save ongoing merge state to a temp location for merge finalize command.
+        ongoing_merge = {}
+        ongoing_merge['mrg_parent1_snapid'] = s1_snapid
+        ongoing_merge['mrg_parent2_snapid'] = s2_snapid
+        ongoing_merge['mrg_src_branch'] = mrg_src_branch
+        ongoing_merge['mrg_dst_branch_aka_curr_br'] = mrg_dst_branch_aka_curr_br
+
+        # serialize and save.
+        ongoing_merge_serialized = json.dumps(ongoing_merge, ensure_ascii=True, sort_keys=True, indent=4)
+
+        ongoing_merge_filepath = os.path.join(merge_temp_dirpath, UVSConst.AMS_ONGOING_MERGE_TEMP_FILENAME)
+
+        # get a file handle in write mode.
+        ongoing_merge_fhandle = open(ongoing_merge_filepath, 'wb')
+
+        ongoing_merge_fhandle.write(ongoing_merge_serialized)
+
+        return result
+
+
+    def finalize_merge(self, snapshot_msg, author_name, author_email):
+        """ """
+
+        merge_temp_dirpath = os.path.join(self._repo_root_path, sdef.TEMP_DIR_NAME)
+
+        ongoing_merge_filepath = os.path.join(merge_temp_dirpath, UVSConst.AMS_ONGOING_MERGE_TEMP_FILENAME)
+
+        if not os.path.isfile(ongoing_merge_filepath):
+            raise UVSError("There is no ongoing merge to finalize.")
+
+        # get a file handle in read mode and read it.
+        ongoing_merge_serialized = open(ongoing_merge_filepath, 'rb').read()
+
+        ongoing_merge = json.loads(ongoing_merge_serialized)
+
+
+        print " "
+        print ongoing_merge
+
+
+        # TODO do this:
+        # recover the merge json saved somewhere.
+        # clear repo root (except uvs internals) (refactor this to a private helper if needed)
+        # copy the contents of merge_result to repo root.
+        # delete uvs_temp folder
+        # call take snapshot with snap msg and so on.
+        # also pass in the merge parents to the take snapshot (will require refactoring, to use these)
+        # return its return value and modify the UI caller to read and print those
+
+
+
+
 
 
 

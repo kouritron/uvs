@@ -42,59 +42,6 @@ def _init_new_repo():
     uvsmanager.init_new_uvs_repo_overwrite(repo_pass=user_pass, repo_root_path=cwd)
 
 
-def _checkout(commit_ref):
-    """ checkout the snapshot with the given commit reference (which can be commit id or branch name) """
-
-    assert commit_ref is not None
-
-    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
-    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
-    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
-    cwd = os.getcwd()
-
-    log.cli("_checkout called. repo root: " + cwd)
-
-    # if this is a uvs repo uvs db files are here.
-    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
-    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
-
-    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
-        print "current working directory does not appear to be a uvs repository."
-        sys.exit(1)
-
-
-    # now ask the user for the passphrase
-    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
-
-    uvsmgr = None
-
-    try:
-        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
-    except UVSError as e:
-        print e.message
-        sys.exit(1)
-
-    result = None
-    try:
-        result = uvsmgr.checkout_reference_at_repo_root(snapshot_ref=commit_ref, clear_dest=True)
-    except UVSError as e:
-        print e.message
-        sys.exit(1)
-
-    if result and result['op_failed']:
-        print "operation failed"
-        if result.has_key('op_failed_desc'):
-            print "cause: " + str(result['op_failed_desc'])
-    else:
-        print "successfully checked out: " + str(commit_ref)
-        if result.has_key("detached_head") and result['detached_head']:
-            print "head is in detached state."
-
-        if result.has_key("head_attached_to") :
-            print "head is attached to: " + str(result['head_attached_to'])
-
-
-
 def _commit(commit_msg):
     """ make a new snapshot of the repository. """
 
@@ -152,7 +99,7 @@ def _log_all_commits():
     # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
     cwd = os.getcwd()
 
-    log.cli("_log_commits called. repo root: " + cwd)
+    log.cli("_log_all_commits called. repo root: " + cwd)
 
     # if this is a uvs repo uvs db files are here.
 
@@ -229,10 +176,11 @@ def _log_commits():
 
     if result is None:
         print "log commits reachable from head failed with nil return"
+        sys.exit(1)
 
-    if result['op_failed']:
+    if result and ('op_failed' in result) and result['op_failed']:
         print "operation failed"
-        if result.has_key('op_failed_desc'):
+        if 'op_failed_desc' in result:
             print "cause: " + str(result['op_failed_desc'])
 
     else:
@@ -302,6 +250,62 @@ def _show_status():
             print "head is at commit: " + str(repo_status["head"])
 
 
+def _checkout(commit_ref):
+    """ checkout the snapshot with the given commit reference (which can be commit id or branch name) """
+
+    assert commit_ref is not None
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_checkout called. repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
+    except UVSError as e:
+        print e.message
+        sys.exit(1)
+
+    result = None
+    try:
+        result = uvsmgr.checkout_reference_at_repo_root(snapshot_ref=commit_ref, clear_dest=True)
+    except UVSError as e:
+        print e.message
+        sys.exit(1)
+
+    if result is None:
+        print "checkout failed with nil return"
+        sys.exit(1)
+
+    if result and ('op_failed' in result) and result['op_failed']:
+        print "operation failed"
+        if result.has_key('op_failed_desc'):
+            print "cause: " + str(result['op_failed_desc'])
+    else:
+        print "successfully checked out: " + str(commit_ref)
+        if result.has_key("detached_head") and result['detached_head']:
+            print "head is in detached state."
+
+        if result.has_key("head_attached_to") :
+            print "head is attached to: " + str(result['head_attached_to'])
+
+
 def _branch(new_branch_name):
     """ Create a new branch with the supplied name.
     The new branch will point to whatever head points right now.
@@ -341,8 +345,9 @@ def _branch(new_branch_name):
 
     if result is None:
         print "Create new branch failed with nil return"
+        sys.exit(1)
 
-    if result['op_failed']:
+    if result and ('op_failed' in result) and result['op_failed']:
         print "operation failed"
         if result.has_key('op_failed_desc'):
             print "cause: " + str(result['op_failed_desc'])
@@ -405,6 +410,62 @@ def _dbg_show_inverted_dag():
     print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
 
 
+def _dbg_show_dag():
+    """ Print the history DAG of this repository. """
+
+
+    # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
+    # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
+    # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
+    cwd = os.getcwd()
+
+    log.cli("_dbg_show_dag() called. repo root: " + cwd)
+
+    # if this is a uvs repo uvs db files are here.
+    shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
+    shadow_db_file_path = os.path.join(shadow_root_path, sdef.SHADOW_DB_FILE_NAME)
+
+    if (not os.path.isdir(shadow_root_path)) or (not os.path.isfile(shadow_db_file_path)):
+        print "current working directory does not appear to be a uvs repository."
+        sys.exit(1)
+
+    # now ask the user for the passphrase
+    user_pass = getpass.getpass(prompt=_REPO_PASS_PROMPT)
+
+    uvsmgr = None
+
+    try:
+        uvsmgr = uvsmanager.UVSManager(repo_pass=user_pass, repo_root_path=cwd)
+    except UVSError as e:
+        # these are all valid ways of getting the exception msg:
+        # e.message
+        # e.args[0]
+        # str(e)
+
+        # .message is probably the worst/most deprecated way
+
+        # print e.args[0]
+        print str(e)
+        sys.exit(1)
+
+
+        #
+
+    try:
+        result = uvsmgr.get_history_dag()
+    except UVSError as e:
+        print "operation failed, cause: "
+        print str(e)
+        sys.exit(1)
+
+    # result['dag_adjacencies'] is a dict of <snapid, [list of snapids of parents] >
+    print '>>>>>>>> Here is the DAG (kid to parent pointers):'
+    print 'DAG adjacencies: '
+
+    print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
+
+
+
 def _dbg_dump_keys():
     """
     Print the encryption keys produced by the underlying kdf for this repository.
@@ -463,19 +524,17 @@ def _dbg_dump_keys():
 
 
 
+def _finalize_merge(commit_msg):
+    """ Finalize an ongoing merge commit. """
 
-
-
-def _dbg_show_dag():
-    """ Print the history DAG of this repository. """
-
+    assert commit_msg is not None
 
     # getcwd has issues with cifs mounted shares and also on ubuntu if a folder is deleted then recreated
     # a shell at that folder can get the expected output from running pwd but python os.getcwd() fails with
     # oserror file does not exist. it might be better to use subprocess pwd instead of cwd at least on unix.
     cwd = os.getcwd()
 
-    log.cli("_dbg_show_dag() called. repo root: " + cwd)
+    log.cli("_finalize_merge() called. repo root: " + cwd)
 
     # if this is a uvs repo uvs db files are here.
     shadow_root_path = os.path.join(cwd, sdef.SHADOW_FOLDER_NAME)
@@ -505,20 +564,16 @@ def _dbg_show_dag():
         sys.exit(1)
 
 
-        #
-
     try:
-        result = uvsmgr.get_history_dag()
+        result = uvsmgr.finalize_merge(snapshot_msg=commit_msg, author_name="n/a", author_email="n/a")
     except UVSError as e:
         print "operation failed, cause: "
         print str(e)
         sys.exit(1)
 
-    # result['dag_adjacencies'] is a dict of <snapid, [list of snapids of parents] >
-    print '>>>>>>>> Here is the DAG (kid to parent pointers):'
-    print 'DAG adjacencies: '
 
-    print json.dumps(result['dag_adjacencies'], indent=4, sort_keys=True)
+    print 'successfully created merge commit.'
+
 
 
 
@@ -664,10 +719,13 @@ def _parse_cmdline():
 
     parser.add_argument("subcmd1", help="what should uvs do",
                         choices=['init', 'status', 'log-all', 'log', 'commit', 'checkout', 'branch',
-                                 'merge', 'show-refs', 'detail-commit', 'dbg-show-inv-dag', 'dbg-show-dag',
-                                 'dbg-dump-keys'])
+                                 'merge', 'merge-finalize', 'show-refs', 'detail-commit',
+                                 'dbg-show-inv-dag', 'dbg-show-dag', 'dbg-dump-keys'])
 
     parser.add_argument("-m", "--message", help="commit message")
+
+    # TODO abolish -ref, where its needed read either -c or -n
+    # then say one of them is needed at least.
     parser.add_argument("-r", "--ref", help="commit reference, either a commit id or branch name")
     parser.add_argument("-c", "--cid", help="commit id")
     parser.add_argument("-n", "--name", help="branch name.")
@@ -717,6 +775,16 @@ def _parse_cmdline():
             sys.exit(2)
 
         _commit(commit_msg=msg)
+
+    elif 'merge-finalize' == args.subcmd1:
+        log.cliv(">>>> merge-finalize sub command called.")
+
+        msg = args.message
+        if None == msg:
+            print "Commit message is required."
+            sys.exit(2)
+
+        _finalize_merge(commit_msg=msg)
 
     elif 'checkout' == args.subcmd1:
         log.cliv(">>>> checkout sub command called.")

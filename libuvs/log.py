@@ -47,9 +47,13 @@ _DISABLE_LOG_CLASS_DAG = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_DAGV = _DISABLE_ALL_LOGS or True
 
 # history DAG related msgs
-#_DISABLE_LOG_CLASS_AMS = _DISABLE_ALL_LOGS or False
-_DISABLE_LOG_CLASS_AMS = False
+_DISABLE_LOG_CLASS_AMS = _DISABLE_ALL_LOGS or False
+#_DISABLE_LOG_CLASS_AMS = False
 _DISABLE_LOG_CLASS_AMSV = _DISABLE_ALL_LOGS or True
+
+
+_DISABLE_LOG_CLASS_GRPH = False
+_DISABLE_LOG_CLASS_GRPHV = _DISABLE_ALL_LOGS or True
 
 
 
@@ -411,3 +415,37 @@ def amsv(msg, label=True):
         final_msg = str(msg)
 
     print term_light_green + final_msg + term_reset
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+def grph(msg, label=True):
+    """ print graph util related log msgs. """
+
+    if _DISABLE_LOG_CLASS_GRPH:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'GRPH: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_yellow + final_msg + term_reset
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+def grphv(msg, label=True):
+    """ print the verbose graph util related log msgs. """
+
+    if _DISABLE_LOG_CLASS_GRPHV:
+        return
+
+    final_msg = None
+
+    if label:
+        final_msg = 'GRPH verbose: ' + str(msg)
+    else:
+        final_msg = str(msg)
+
+    print term_light_yellow + final_msg + term_reset

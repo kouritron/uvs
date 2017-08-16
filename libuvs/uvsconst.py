@@ -35,6 +35,10 @@ class _UVSConst(object):
         return "common_ancestor"
 
 
+    def _AMS_ONGOING_MERGE_TEMP_FILENAME(self):
+        return "ongoing_merge"
+
+
     def _DISK_IO_READ_SIZE_RECOMMENDATION(self):
         """ For performance reasons when reading data from a file its better to
         read this many bytes at a time, rather than 1 byte at a time. """
@@ -62,6 +66,7 @@ class _UVSConst(object):
 
     AMS_MERGE_RESULT_FOLDER_NAME = property(_AMS_MERGE_RESULT_FOLDER_NAME, _set_any_const)
     AMS_CA_FOLDER_NAME = property(_AMS_CA_FOLDER_NAME, _set_any_const)
+    AMS_ONGOING_MERGE_TEMP_FILENAME = property(_AMS_ONGOING_MERGE_TEMP_FILENAME, _set_any_const)
 
 
 UVSConst = _UVSConst()
