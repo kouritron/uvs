@@ -845,6 +845,34 @@ class UVSManager(object):
         result['op_failed'] = False
         return result
 
+    def get_commit_detail(self, snapid):
+        """ Given a snapid, return its details. Exception if snapid not found.
+        """
+
+        assert self._dao is not None
+        assert self._crypt_helper is not None
+
+        log.uvsmgr("get_commit_detail_for_snapid() called. snapid: " + str(snapid))
+
+        result = {}
+
+        snapinfo_ct = self._dao.get_snapshot(snapid)
+
+        if snapinfo_ct is None:
+            raise UVSError("No such commit found, commit id: " + str(snapid))
+
+        snapinfo_serial = self._crypt_helper.decrypt_bytes(ct=snapinfo_ct)
+
+        log.uvsmgr("snapshot decrypted: " + str(snapinfo_serial))
+
+        snapinfo = json.loads(snapinfo_serial)
+
+        result['commit_id'] = snapid
+        result['msg'] = snapinfo['msg']
+        result['author_name'] = snapinfo['author_name']
+        result['author_email'] = snapinfo['author_email']
+
+        return result
 
 
     def list_all_refs(self):
