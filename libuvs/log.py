@@ -10,7 +10,9 @@ _DISABLE_ALL_LOGS = True
 ##----------------------------------------------------------------------------------------------------------------------
 ##----------------------------------------------------------------------------------------------------------------------
 
-_DISABLE_LOG_CLASS_HAZARD = _DISABLE_ALL_LOGS or False
+#_DISABLE_LOG_CLASS_HAZARD = _DISABLE_ALL_LOGS or False
+_DISABLE_LOG_CLASS_HAZARD = True
+
 #_DISABLE_LOG_CLASS_V = _DISABLE_ALL_LOGS or False
 _DISABLE_LOG_CLASS_V = False
 

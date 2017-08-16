@@ -148,22 +148,39 @@ class UVSCryptHelper(object):
         #log.hazard('kdf produced key in hex: \n' + str(kdf_output_key.encode('hex')))
 
         # the first uvsfp_key_len many bytes are for keyed fingerprinting of objects
-        self.uvsfp_key_bytes = kdf_output_key[:uvsfp_key_len]
+        self._uvsfp_key_bytes = kdf_output_key[:uvsfp_key_len]
 
         # fernet wants a 256 bit key
         # the 1st 128 bits of this are used for AES 128 CBC
         # the 2nd 128 bits of this are used for authenticating tokens (HMAC part of fernet)
-        fernet_key_bytes = kdf_output_key[uvsfp_key_len: uvsfp_key_len + fernet_key_len]
-        fernet_key_b64 = base64.urlsafe_b64encode(fernet_key_bytes)
+        self._fernet_key_bytes = kdf_output_key[uvsfp_key_len: uvsfp_key_len + fernet_key_len]
+        fernet_key_b64 = base64.urlsafe_b64encode(self._fernet_key_bytes)
 
         log.hazard('user pass: \n' + str(usr_pass))
-        log.hazard('uvs fp key in hex: \n' + str(self.uvsfp_key_bytes.encode('hex')))
-        log.hazard('fernet key in hex: \n' + str(fernet_key_bytes.encode('hex')))
+        log.hazard('uvs fp key in hex: \n' + str(self._uvsfp_key_bytes.encode('hex')))
+        log.hazard('fernet key in hex: \n' + str(self._fernet_key_bytes.encode('hex')))
         log.hazard('fernet key in b64: \n' + str(fernet_key_b64))
 
         # create a new fernet instance
         # fernet wants key to be encoded with the URL safe variant of base64
         self._fernet = Fernet(key=fernet_key_b64)
+
+
+    def dbg_get_keys_dump(self):
+        """ Return a dict with the encryption keys produced by the underlying kdf for this repository.
+        Dumping keys to terminal is probably a bad idea, and should not be used beyond development/debug.
+        """
+
+        result = {}
+
+        result['key_fernet_b64'] = str(base64.urlsafe_b64encode(self._fernet_key_bytes))
+        result['key_fernet_hex'] = str(self._fernet_key_bytes.encode('hex'))
+
+        result['key_sefp_hex'] = str(self._uvsfp_key_bytes.encode('hex'))
+        result['key_sefp_b64'] = str(base64.urlsafe_b64encode(self._uvsfp_key_bytes))
+
+        return result
+
 
 
 
@@ -247,7 +264,7 @@ class UVSCryptHelper(object):
         # PRF. For detailed discussion read rfc2104. RFC2104 recommends that the key be at least as long as
         # the digest size. It also says if the key is larger than the block size of underlying algo, it will be
         # hashed first and then use the result for HMAC key.
-        hmac_func = hmac.HMAC(self.uvsfp_key_bytes, hash_func, backend=default_backend())
+        hmac_func = hmac.HMAC(self._uvsfp_key_bytes, hash_func, backend=default_backend())
 
         hmac_func.update(message)
         uvsfp = hmac_func.finalize()
