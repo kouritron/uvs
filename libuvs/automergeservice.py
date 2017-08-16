@@ -11,6 +11,11 @@ import log
 from uvsconst import UVSConst
 
 
+# TODO: return results from this service
+# shouldnt have trouble found flag set. hard conflict found is ok, refactor trouble found to raise error
+
+
+
 # this is a un-keyed hash, it is not stored anywhere in a uvs repo, its just for temporary comparing 2 files
 # to see if they are the same or not. we could also just read them all and do a byte for byte compare.
 def _get_file_hash(filepath):

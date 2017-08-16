@@ -18,6 +18,7 @@ import graph_util
 import automergeservice
 import validatorservice as vldserv
 from uvs_errors import *
+from uvsconst import UVSConst
 
 
 _MAIN_REF_DOC_NAME = 'main'
@@ -1370,10 +1371,14 @@ class UVSManager(object):
 
         merge_s1_dirpath = os.path.join(merge_temp_dirpath, mrg_dst_branch_aka_curr_br)
         merge_s2_dirpath = os.path.join(merge_temp_dirpath, mrg_src_branch)
-        merge_ca_dirpath = os.path.join(merge_temp_dirpath, 'common_ancestor')
+        merge_ca_dirpath = os.path.join(merge_temp_dirpath, UVSConst.AMS_CA_FOLDER_NAME)
+
+        # TODO the above line means that we must disallow the user from creating a branch called, common_ancestor.
+        # in create branch fail with error that says that name is reserved try something else for new branch name.
+
 
         # TODO move this name to init, and set it to a constant.
-        merge_out_dirpath = os.path.join(merge_temp_dirpath, 'merge_result')
+        merge_out_dirpath = os.path.join(merge_temp_dirpath, UVSConst.AMS_MERGE_RESULT_FOLDER_NAME)
 
         if not os.path.exists(merge_s1_dirpath):
             os.makedirs(merge_s1_dirpath)
@@ -1393,24 +1398,32 @@ class UVSManager(object):
         self._recursively_checkout_tree(tid=ca_root_treeid, dest_dir_path=merge_ca_dirpath)
 
         # now call auto merge service
-        conflicts_found = automergeservice.auto_merge3(base_dirpath=merge_ca_dirpath, a_dirpath=merge_s1_dirpath,
+        ams_result = automergeservice.auto_merge3(base_dirpath=merge_ca_dirpath, a_dirpath=merge_s1_dirpath,
                                                        b_dirpath=merge_s2_dirpath, out_dirpath= merge_out_dirpath)
 
-        if conflicts_found:
+        if ams_result['hard_conflicts_found']:
 
-            # todo deal with this
-            # result['op_failed'] = False
-            result['merge_msg'] = "conflicts found that require manual resolution. check .uvs_temp folder \n" \
-                                  "make sure the merge_result folder has the final version that you want."
+            result['merge_msg'] = ("conflicts found that require manual resolution. \n your merge results along " +
+                                   "with conflict markers are under: " + str(merge_out_dirpath) +
+                                   "\nresolve these and make sure that folder has the final version " +
+                                   "that you want. \n" +
+                                   "then run the merge-finalize command to commit the merge.")
             return result
 
         else:
             # result['op_failed'] = False
-            result['merge_msg'] = "merged your files using the diff3 program. check merge_result subdir\n" \
-                                  "inside the repository temp folder: " + sdef.TEMP_DIR_NAME
+            result['merge_msg'] = ("Successfully merged your files using the 3 way merge algorithm." +
+                                   "There are no conflicts that need manual resolution. However this does not mean " +
+                                   "that the merge result is necessarily what you want. It is possible that two " +
+                                   "perfectly bug-free branches get merged, and the 3 way merge algorithm introduces " +
+                                   "a bug that did not exist in any of the two branches involved in the merge. " +
+                                   "This is true of all 3 way merging programs or dvcs including git. " +
+                                   "Such situations arise when the two branches have overlapping side effects, " +
+                                   "but have only changed lines from well-separated parts of your source. " +
+                                   "check your merge results under: " + str(merge_out_dirpath) +
+                                   "\nconfirm that this is what you want " +
+                                   "then run the merge-finalize command to commit the merge.")
             return result
-
-
 
 
 
