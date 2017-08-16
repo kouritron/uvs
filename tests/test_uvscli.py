@@ -121,7 +121,7 @@ class TestUVSCli(unittest.TestCase):
 
         test_pass = '123'
 
-        init_cmd = ['uvscli', 'init']
+        init_cmd = ['uvs', 'init']
 
         p = subprocess.Popen(init_cmd, stdin=subprocess.PIPE, cwd=self.repo_root_path)
 
@@ -182,10 +182,10 @@ class TestUVSCli(unittest.TestCase):
 
         test_pass = '123'
 
-        init_cmd = ['uvscli', 'init']
+        init_cmd = ['uvs', 'init']
 
         # p = subprocess.Popen('cat', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        #p = subprocess.Popen(['uvscli', 'init'], stdin=subprocess.PIPE, shell=True)
+        #p = subprocess.Popen(['uvs', 'init'], stdin=subprocess.PIPE, shell=True)
         p = subprocess.Popen(init_cmd, stdin=subprocess.PIPE, cwd=self.repo_root_path)
 
         p.stdin.write(test_pass)
