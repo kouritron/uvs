@@ -310,13 +310,11 @@ def dag_find_eca_three_color(dag, node_1, node_2):
 
     bfs_visit(dag=dag, start=node_2, visit_callback=visit_ds)
 
-    ds_count = len(double_suspect_nodes)
-
-    assert 0 != ds_count, 'invalid DAG'
+    assert 0 != len(double_suspect_nodes), 'invalid DAG'
 
     # if there is only one double suspect node at this point, it is the ECA, return it.
-    if 1 == ds_count:
-        return double_suspect_nodes.pop()
+    if 1 == len(double_suspect_nodes):
+        return double_suspect_nodes
 
     eca_denied = set()
     eca_candidate = set()
@@ -342,6 +340,9 @@ def dag_find_eca_three_color(dag, node_1, node_2):
         bfs_visit(dag=dag, start=ds, visit_callback=visit_clear_stage)
 
     # now all nodes that are in eca_candidate but not marked/colored as denied are the earliest common ancestors.
+
+    log.grphv("repr(eca_candidate): " + repr(eca_candidate) )
+    log.grphv("repr(eca_denied): " + repr(eca_denied) )
 
     return eca_candidate.difference(eca_denied)
 
