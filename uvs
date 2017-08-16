@@ -573,6 +573,7 @@ def _finalize_merge(commit_msg):
 
 
     print 'successfully created merge commit.'
+    print 'merge commit id: ' + str(result)
 
 
 

@@ -201,7 +201,7 @@ class UVSManager(object):
 
         assert isinstance(dirpath, str) or isinstance(dirpath, unicode) or isinstance(dirpath, bytes)
 
-        ignore_dirnames = ('.uvs_shadow', '.uvs_cache')
+        ignore_dirnames = (sdef.SHADOW_FOLDER_NAME, sdef.TEMP_DIR_NAME)
 
         for ignore_dirname in ignore_dirnames:
             if ignore_dirname in dirpath:
@@ -218,8 +218,9 @@ class UVSManager(object):
         assert isinstance(subdir_name_list, list)
 
         result = []
-        # TODO remove the hard codes, use constants
-        ignore_dirnames = ('.uvs_shadow', '.uvs_cache')
+
+        #
+        ignore_dirnames = (sdef.SHADOW_FOLDER_NAME, sdef.TEMP_DIR_NAME)
 
         for subdir_name in subdir_name_list:
 
@@ -376,10 +377,12 @@ class UVSManager(object):
         return tree_id
 
 
-    def take_snapshot(self, snapshot_msg, author_name, author_email):
+    def take_snapshot(self, snapshot_msg, author_name, author_email, explicit_parents_for_merge_commit=None):
         """ Take a snapshot image of this repository  right now and save the cipher text to uvs.shadow db file.
         returns the snapshot id of the newly created snapshot. 
         """
+
+        assert (explicit_parents_for_merge_commit is None) or isinstance(explicit_parents_for_merge_commit, list)
 
         assert self._dao is not None
         assert self._crypt_helper is not None
@@ -454,6 +457,9 @@ class UVSManager(object):
 
 
 
+        # TODO, perhaps there is a cleaner way to accomodate merge commits:
+        if explicit_parents_for_merge_commit is not None:
+            parent_snapids = explicit_parents_for_merge_commit
 
 
 
@@ -1346,7 +1352,7 @@ class UVSManager(object):
         #                          >> find and check out the common ancestor to '.uvs_temp/ca'
 
 
-        log.v("merge case4. nodes are not each others ancestor/descendant .")
+        log.vvvv("merge case4. nodes are not each others ancestor/descendant .")
 
         # if none of case1 or case2 happened mrg_dst and mrg_src must be siblings.
 
@@ -1411,7 +1417,7 @@ class UVSManager(object):
 
 
         # TODO move this name to init, and set it to a constant.
-        merge_out_dirpath = os.path.join(merge_temp_dirpath, UVSConst.AMS_MERGE_RESULT_FOLDER_NAME)
+        merge_result_dirpath = os.path.join(merge_temp_dirpath, UVSConst.AMS_MERGE_RESULT_FOLDER_NAME)
 
         if not os.path.exists(merge_s1_dirpath):
             os.makedirs(merge_s1_dirpath)
@@ -1422,8 +1428,8 @@ class UVSManager(object):
         if not os.path.exists(merge_ca_dirpath):
             os.makedirs(merge_ca_dirpath)
 
-        if not os.path.exists(merge_out_dirpath):
-            os.makedirs(merge_out_dirpath)
+        if not os.path.exists(merge_result_dirpath):
+            os.makedirs(merge_result_dirpath)
 
         # now we got 3 tree ids and the respective temp dirs.
         self._recursively_checkout_tree(tid=s1_root_treeid, dest_dir_path=merge_s1_dirpath)
@@ -1432,12 +1438,12 @@ class UVSManager(object):
 
         # now call auto merge service
         ams_result = automergeservice.auto_merge3(base_dirpath=merge_ca_dirpath, a_dirpath=merge_s1_dirpath,
-                                                       b_dirpath=merge_s2_dirpath, out_dirpath= merge_out_dirpath)
+                                                       b_dirpath=merge_s2_dirpath, out_dirpath= merge_result_dirpath)
 
         if ams_result['hard_conflicts_found']:
 
-            result['merge_msg'] = ("conflicts found that require manual resolution. \n your merge results along " +
-                                   "with conflict markers are under: " + str(merge_out_dirpath) +
+            result['merge_msg'] = ("conflicts found that require manual resolution. \nyour merge results along " +
+                                   "with conflict markers are under: " + str(merge_result_dirpath) +
                                    "\nresolve these and make sure that folder has the final version " +
                                    "that you want. \n" +
                                    "then run the merge-finalize command to commit the merge.")
@@ -1451,7 +1457,7 @@ class UVSManager(object):
                                    "This is true of all 3 way merging programs or dvcs including git. \n" +
                                    "Such situations arise when the two branches have overlapping side effects,\n" +
                                    "but have only changed lines from well-separated parts of your source. \n" +
-                                   "check your merge results under: " + str(merge_out_dirpath) +
+                                   "check your merge results under: " + str(merge_result_dirpath) +
                                    "\nconfirm that this is what you want. " +
                                    "then run the merge-finalize command to commit the merge.")
 
@@ -1478,11 +1484,27 @@ class UVSManager(object):
 
 
     def finalize_merge(self, snapshot_msg, author_name, author_email):
-        """ """
+        """ Finalize an ongoing merge.  """
+
+
+        # for this function we do this:
+        # recover the merge json saved somewhere.
+
+
+        # clear repo root (except uvs internals) (refactor this to a private helper if needed)
+        # copy the contents of merge_result to repo root.
+        # delete uvs_temp folder
+        # call take snapshot with snap msg and so on.
+        # also pass in the merge parents to the take snapshot (will require refactoring, to use these)
+        # return its return value and modify the UI caller to read and print those
+
 
         merge_temp_dirpath = os.path.join(self._repo_root_path, sdef.TEMP_DIR_NAME)
 
         ongoing_merge_filepath = os.path.join(merge_temp_dirpath, UVSConst.AMS_ONGOING_MERGE_TEMP_FILENAME)
+
+        if not os.path.isdir(merge_temp_dirpath):
+            raise UVSError("There is no ongoing merge directory to finalize.")
 
         if not os.path.isfile(ongoing_merge_filepath):
             raise UVSError("There is no ongoing merge to finalize.")
@@ -1493,21 +1515,32 @@ class UVSManager(object):
         ongoing_merge = json.loads(ongoing_merge_serialized)
 
 
-        print " "
-        print ongoing_merge
+        log.vvvv("clearing repo root.\n")
 
+        # clear repo root (except uvs internals)
+        self.clear_directory_keep_uvs_internals(dest_dirpath=self._repo_root_path)
 
-        # TODO do this:
-        # recover the merge json saved somewhere.
-        # clear repo root (except uvs internals) (refactor this to a private helper if needed)
-        # copy the contents of merge_result to repo root.
-        # delete uvs_temp folder
-        # call take snapshot with snap msg and so on.
-        # also pass in the merge parents to the take snapshot (will require refactoring, to use these)
-        # return its return value and modify the UI caller to read and print those
+        # now copy the contents of merge_result to repo root.
+        merge_result_dirpath = os.path.join(merge_temp_dirpath, UVSConst.AMS_MERGE_RESULT_FOLDER_NAME)
 
 
 
+        from distutils.dir_util import copy_tree
+
+        copy_tree(merge_result_dirpath, self._repo_root_path)
+
+        try:
+            shutil.rmtree(merge_temp_dirpath, ignore_errors=True)
+        except:
+            # TODO, deal with this.
+            pass
+
+        merge_parents = []
+        merge_parents.append(ongoing_merge['mrg_parent1_snapid'])
+        merge_parents.append(ongoing_merge['mrg_parent2_snapid'])
+
+        return self.take_snapshot(snapshot_msg=snapshot_msg, author_name=author_name, author_email=author_email,
+                                  explicit_parents_for_merge_commit=merge_parents)
 
 
 
@@ -1754,7 +1787,40 @@ class UVSManager(object):
         return result
 
 
+    def clear_directory_keep_uvs_internals(self, dest_dirpath):
+        """ Delete everything at the supplied dirpath except uvs internal directories/files .
+        """
 
+        if not os.path.isdir(dest_dirpath):
+            raise UVSError("Invalid destination directory.")
+
+        # TODO: i think we should not remove files that are not version controlled.
+        # study git's behavior on this.
+
+        dest_members = os.listdir(dest_dirpath)
+        log.uvsmgr("clearing destination directory: all destination members: " + repr(dest_members))
+
+        actual_paths_to_remove = []
+
+        dont_remove = set()
+        dont_remove.add(sdef.TEMP_DIR_NAME)
+        dont_remove.add(sdef.SHADOW_FOLDER_NAME)
+        dont_remove.add(sdef.SHADOW_DB_FILE_NAME)
+
+        for dest_member in dest_members:
+            if dest_member not in dont_remove:
+                actual_paths_to_remove.append(os.path.join(dest_dirpath, dest_member))
+
+
+        log.uvsmgr("clearing destination directory: dest members to be removed: " + repr(actual_paths_to_remove))
+
+        for path in actual_paths_to_remove:
+            if os.path.isdir(path):
+                # TODO: perhaps write a manual directory remover that uses os.walk to traverse and
+                # delete a directory similar to rmtree, but skip if we found uvs_shadow down the tree.
+                shutil.rmtree(path)
+            elif os.path.isfile(path):
+                os.remove(path)
 
 
     def checkout_snapshot_bare(self, snapid, dest_dirpath, clear_dest=True):
@@ -1788,37 +1854,8 @@ class UVSManager(object):
 
         # now check again to see if it does exist or not. if still does not exist, i cant proceed. error
 
-        if not os.path.isdir(dest_dirpath):
-            raise UVSError("Invalid destination directory.")
-
-        # TODO: i think we should not remove files that are not version controlled.
-        # study git's behavior on this.
         if clear_dest:
-
-            dest_members = os.listdir(dest_dirpath)
-            log.uvsmgr("clearing destination directory: all destination members: " + repr(dest_members))
-
-            actual_paths_to_remove = []
-
-            dont_remove = set()
-            dont_remove.add(sdef.TEMP_DIR_NAME)
-            dont_remove.add(sdef.SHADOW_FOLDER_NAME)
-            dont_remove.add(sdef.SHADOW_DB_FILE_NAME)
-
-            for dest_member in dest_members:
-                if dest_member not in dont_remove:
-                    actual_paths_to_remove.append(os.path.join(dest_dirpath, dest_member))
-
-
-            log.uvsmgr("clearing destination directory: dest members to be removed: " + repr(actual_paths_to_remove))
-
-            for path in actual_paths_to_remove:
-                if os.path.isdir(path):
-                    # TODO: perhaps write a manual directory remover that uses os.walk to traverse and
-                    # delete a directory similar to rmtree, but skip if we found uvs_shadow down the tree.
-                    shutil.rmtree(path)
-                elif os.path.isfile(path):
-                    os.remove(path)
+            self.clear_directory_keep_uvs_internals(dest_dirpath=dest_dirpath)
 
 
         # To checkout, get the snapshot, find the root tree id. (raise error if decryption fails, or mac failed.)
