@@ -1,15 +1,21 @@
 
 ## TODO clean this up
 
-to get the python cryptography library to import run:
+to get the python to be able to import cryptography, run:
 
 sudo apt-get install build-essential python-dev python-pip openssl libssl-dev libffi-dev
 
 now pip can compile and install cryptography 
 
 sudo pip install cryptography 
- 
-# postgres driver:
+
+## merge dependency
+
+the merge subcommands also depend on gnu diff utils. on ubuntu this can be:
+
+sudo apt-get install diffutils
+
+# postgres driver (psql backend was just for performance comparison):
 sudo pip install psycopg2
 
 

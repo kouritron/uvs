@@ -5,13 +5,11 @@ import os
 import shutil
 import errno
 
-import hash_util
 import rand_util
 import log
 import cryptmanager as cm
 import systemdefaults as sdef
 import version
-import dal_psql
 import dal_blackhole
 import dal_sqlite
 import graph_util
