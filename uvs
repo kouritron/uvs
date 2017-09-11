@@ -129,11 +129,15 @@ def _log_all_commits():
     # <snapid, commit msg, author name, author email>
     all_snapshots = uvsmgr.list_all_snapshots()
 
+    if 0 == len(all_snapshots):
+        print ">>> uvs log: repository appears to be empty."
+    else:
+        print ">>> uvs log: found these commits:"
 
-    print ">>> uvs log: found these snapshots:"
     for snapid, msg, name, email in all_snapshots:
         print "commit id: " + str(snapid)
         print "author name: " + str(name) + " email: " + str(email) + " commit msg: " + str(msg) + "\n\n"
+
 
 def _log_commits():
     """ Show the list of commits, that are reachable from head. """
@@ -172,12 +176,14 @@ def _log_commits():
 
     # if operation does not fail, inside result['snapshots'] i am expecting a list of tuples like this;
     # <snapid, commit msg, author name, author email>
-    result = uvsmgr.list_reachable_snapshots_from_head()
-
-    if result is None:
-        print "log commits reachable from head failed with nil return"
+    try:
+        result = uvsmgr.list_reachable_snapshots_from_head()
+    except UVSError as e:
+        print "operation failed, cause: "
+        print str(e)
         sys.exit(1)
 
+    # TODO remove the op_failed k,v pairs and raise exception in libuvs when op_failed occurs.
     if result and ('op_failed' in result) and result['op_failed']:
         print "operation failed"
         if 'op_failed_desc' in result:

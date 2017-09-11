@@ -919,6 +919,9 @@ class UVSManager(object):
 
                 branch_snapinfo = self.get_snapinfo_for_snapid(snapid=branch_snapid)
 
+                if branch_snapinfo is None:
+                    continue
+
                 vldserv.check_snapinfo_dict(snapinfo=branch_snapinfo)
 
                 result['commit_msgs'][branch_name] = branch_snapinfo['msg']
@@ -1894,6 +1897,9 @@ class UVSManager(object):
 
         assert self._dao is not None
         assert self._crypt_helper is not None
+
+        if snapid is None:
+            return None
 
         snapid = vldserv.check_snapid_and_get_std(snapid=snapid)
 
